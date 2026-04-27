@@ -36,6 +36,8 @@ body:
       label: MCP Client
       description: Where is the MCP server running from?
       options:
+        - VS Code
+        - JetBrains
         - Claude Desktop
         - Cursor
         - Cline
@@ -50,7 +52,7 @@ body:
       label: LLM / Agent
       options:
         - Claude (Anthropic)
-        - GPT-4 (OpenAI)
+        - GPT (OpenAI)
         - Gemini (Google)
         - Other
     validations:
