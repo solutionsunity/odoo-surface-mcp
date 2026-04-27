@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/suco-odoo-surface-mcp)](https://pypi.org/project/suco-odoo-surface-mcp/)
 [![Odoo](https://img.shields.io/badge/Odoo-16%2B-blueviolet)](https://www.odoo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/suco-odoo-surface-mcp)](https://pypistats.org/packages/suco-odoo-surface-mcp)
 
 User-equivalent Odoo access for AI agents — what the authenticated user can do in their browser, nothing more.
 
