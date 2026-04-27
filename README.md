@@ -39,7 +39,7 @@ Add this to your MCP client config (e.g. Claude Desktop `claude_desktop_config.j
   "mcpServers": {
     "odoo-surface": {
       "command": "uvx",
-      "args": ["suco-odoo-surface-mcp"],
+      "args": ["suco-odoo-surface-mcp@latest"],
       "env": {
         "ODOO_URL": "http://localhost:8069",
         "ODOO_DB": "your_database",
@@ -58,7 +58,7 @@ Restart your MCP client after saving. `uvx` downloads and runs the package autom
 Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `inspect_fields`, `query_db`, `dump_cache`, `clear_cache`, `restart_mcp`.
 
 ```json
-"args": ["suco-odoo-surface-mcp", "--debug"]
+"args": ["suco-odoo-surface-mcp@latest", "--debug"]
 ```
 
 ## Tools
