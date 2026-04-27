@@ -9,7 +9,7 @@ User-equivalent Odoo access for AI agents — what the authenticated user can do
 
 ## Prerequisites
 
-A running Odoo instance (14–17, CE or EE) and an MCP-compatible client (e.g. Claude Desktop).
+A running Odoo instance (16.0+, CE or EE) and an MCP-compatible client (e.g. Claude Desktop).
 
 ### Install `uv`
 
