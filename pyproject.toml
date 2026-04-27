@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "suco-odoo-surface-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "User-equivalent Odoo access for AI agents via MCP"
 readme = "README.md"
 license = { text = "MIT" }
@@ -30,7 +30,7 @@ Repository = "https://github.com/solutionsunity/odoo-surface-mcp"
 Issues = "https://github.com/solutionsunity/odoo-surface-mcp/issues"
 
 [project.scripts]
-odoo-surface-mcp = "odoo_surface_mcp.main:main"
+suco-odoo-surface-mcp = "odoo_surface_mcp.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["odoo_surface_mcp"]
