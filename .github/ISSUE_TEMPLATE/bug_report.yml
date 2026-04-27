@@ -30,31 +30,20 @@ body:
     validations:
       required: true
 
-  - type: dropdown
+  - type: input
     id: mcp_client
     attributes:
       label: MCP Client
       description: Where is the MCP server running from?
-      options:
-        - VS Code
-        - JetBrains
-        - Claude Desktop
-        - Cursor
-        - Cline
-        - Windsurf
-        - Other
+      placeholder: "e.g. VS Code, JetBrains, Claude Desktop, Cursor, Cline, Windsurf, Claude Code, Codex"
     validations:
       required: true
 
-  - type: dropdown
+  - type: input
     id: llm
     attributes:
       label: LLM / Agent
-      options:
-        - Claude (Anthropic)
-        - GPT (OpenAI)
-        - Gemini (Google)
-        - Other
+      placeholder: "e.g. Claude, GPT, Gemini, Grok"
     validations:
       required: true
 
