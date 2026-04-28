@@ -9,7 +9,7 @@ name: Publish to npm
 #     Environment: npm
 #
 # Critical constraints (all three must hold or publish will fail):
-#   1. npm 11.5.1+ is required for OIDC support  →  "Upgrade npm" step below
+#   1. npm 11.5.1+ is required for OIDC support  →  upgraded via corepack (npm self-upgrade is broken on runners)
 #   2. setup-node must NOT have registry-url      →  registry-url blocks OIDC
 #   3. id-token: write permission must be present →  provides the OIDC token
 
@@ -36,7 +36,10 @@ jobs:
           # NO registry-url — presence of registry-url blocks OIDC auth
 
       - name: Upgrade npm for OIDC support
-        run: npm install -g npm@latest
+        run: |
+          corepack enable
+          corepack prepare npm@latest --activate
+          npm --version
 
       - name: Install dependencies
         run: npm ci
