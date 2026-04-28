@@ -1,4 +1,4 @@
-name: Publish to PyPI
+name: Publish to npm
 
 on:
   push:
@@ -9,24 +9,23 @@ jobs:
   publish:
     name: Build and publish
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: npm
     permissions:
-      id-token: write  # required for PyPI Trusted Publisher (OIDC)
+      id-token: write  # required for npm Provenance (OIDC)
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
 
-      - name: Install build tools
-        run: pip install hatch
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build distribution
-        run: hatch build
+      - name: Build
+        run: npm run build
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
+      - name: Publish to npm
+        run: npm publish --provenance --access public

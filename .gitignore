@@ -1,14 +1,9 @@
 # Credentials — never commit real credentials
 .env
 
-# Python
-__pycache__/
+# Node
+node_modules/
 dist/
-*.py[cod]
-*.pyo
-.venv/
-venv/
-*.egg-info/
 
 # IDE
 .vscode/

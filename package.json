@@ -1,0 +1,41 @@
+{
+  "name": "@suco/odoo-surface-mcp",
+  "version": "0.3.0",
+  "description": "User-equivalent Odoo access for AI agents via MCP",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "odoo-surface-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "node --loader ts-node/esm src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "dotenv": "^16.4.0",
+    "fast-xml-parser": "^4.4.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "odoo",
+    "mcp",
+    "ai",
+    "agent",
+    "erp"
+  ],
+  "license": "MIT",
+  "homepage": "https://solutionsunity.com/products/odoo-surface",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solutionsunity/odoo-surface-mcp.git"
+  }
+}

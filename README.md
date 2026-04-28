@@ -1,47 +1,18 @@
 # OdooSurface MCP
 
-[![PyPI version](https://img.shields.io/pypi/v/suco-odoo-surface-mcp)](https://pypi.org/project/suco-odoo-surface-mcp/)
-[![Python](https://img.shields.io/pypi/pyversions/suco-odoo-surface-mcp)](https://pypi.org/project/suco-odoo-surface-mcp/)
-[![Odoo](https://img.shields.io/badge/Odoo-16%2B-blueviolet)](https://www.odoo.com)
+[![npm version](https://img.shields.io/npm/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
+[![Node](https://img.shields.io/node/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
+[![Odoo](https://img.shields.io/badge/Odoo-17%2B-blueviolet)](https://www.odoo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/suco-odoo-surface-mcp)](https://pypistats.org/packages/suco-odoo-surface-mcp)
+[![Downloads](https://img.shields.io/npm/dm/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
 
 User-equivalent Odoo access for AI agents — what the authenticated user can do in their browser, nothing more.
 
 ## Prerequisites
 
-A running Odoo instance (16.0+, CE or EE) and an MCP-compatible client (e.g. VS Code, Claude Desktop, Claude Code).
-
-### Install `uv`
-
-`uv` is the Python runner used to launch the server — no manual Python or pip setup needed.
-
-**macOS**
-```bash
-brew install uv
-```
-
-Then make `uvx` visible to MCP clients (non-login shells):
-```bash
-sudo ln -s $(which uvx) /usr/local/bin/uvx
-```
-
-**Windows**
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-**Linux**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then make `uvx` visible to MCP clients (non-login shells):
-```bash
-sudo ln -s $(which uvx) /usr/local/bin/uvx
-```
-
-> **Important:** After installing `uv`, fully close and reopen your AI client (VS Code, Claude Code, Claude Desktop, etc.) so it picks up the new `uvx` command.
+- Node.js 18+ (ships with `npx` — no extra install needed)
+- A running Odoo instance (17.0+, CE or EE)
+- An MCP-compatible client (VS Code, Claude Desktop, Claude Code, Cursor, …)
 
 ## Configure your MCP client
 
@@ -51,8 +22,8 @@ Add this to your MCP client config (e.g. Claude Desktop `claude_desktop_config.j
 {
   "mcpServers": {
     "odoo-surface": {
-      "command": "uvx",
-      "args": ["suco-odoo-surface-mcp@latest"],
+      "command": "npx",
+      "args": ["-y", "@suco/odoo-surface-mcp@latest"],
       "env": {
         "ODOO_URL": "http://localhost:8069",
         "ODOO_DB": "your_database",
@@ -64,14 +35,14 @@ Add this to your MCP client config (e.g. Claude Desktop `claude_desktop_config.j
 }
 ```
 
-Restart your MCP client after saving. `uvx` downloads and runs the package automatically — no further install steps.
+Restart your MCP client after saving. `npx` downloads and runs the package automatically — no further install steps.
 
 ## Debug mode
 
-Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `inspect_fields`, `query_db`, `dump_cache`, `clear_cache`, `restart_mcp`.
+Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `inspect_fields`, `dump_cache`, `clear_cache`, `restart_mcp`.
 
 ```json
-"args": ["suco-odoo-surface-mcp@latest", "--debug"]
+"args": ["-y", "@suco/odoo-surface-mcp@latest", "--debug"]
 ```
 
 ## Tools
