@@ -9,9 +9,14 @@ name: Publish to npm
 #     Environment: npm
 #
 # Critical constraints (all three must hold or publish will fail):
-#   1. npm 11.5.1+ is required for OIDC support  →  upgraded via corepack (npm self-upgrade is broken on runners)
-#   2. setup-node must NOT have registry-url      →  registry-url blocks OIDC
+#   1. npm 11.5.1+ is required for OIDC support  →  "Upgrade npm" step replaces npm files directly
+#   2. registry-url MUST be set in setup-node     →  writes .npmrc registry config; OIDC needs it
 #   3. id-token: write permission must be present →  provides the OIDC token
+#
+# Why corepack does NOT work here:
+#   corepack only intercepts `npm` when `packageManager` is set in package.json.
+#   Without it, `corepack prepare npm@latest --activate` downloads npm but does not
+#   update the npm binary in PATH — the old broken version is still used.
 
 on:
   push:
@@ -33,12 +38,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          # NO registry-url — presence of registry-url blocks OIDC auth
+          registry-url: "https://registry.npmjs.org"  # writes .npmrc; OIDC requires this
 
       - name: Upgrade npm for OIDC support
         run: |
-          corepack enable
-          corepack prepare npm@latest --activate
+          # npm self-upgrade is broken on runners (missing bundled deps).
+          # corepack does not update PATH without packageManager in package.json.
+          # Solution: download fresh npm tarball and replace the installed npm files directly.
+          NPM_VER=$(python3 -c "import urllib.request,json; print(json.loads(urllib.request.urlopen('https://registry.npmjs.org/npm/latest').read())['version'])")
+          echo "Installing npm@${NPM_VER}"
+          curl -fsSL "https://registry.npmjs.org/npm/-/npm-${NPM_VER}.tgz" | tar xz -C /tmp
+          NPM_LIB=$(node -e "console.log(require('path').join(process.execPath,'..','..','lib','node_modules','npm'))")
+          sudo rm -rf "${NPM_LIB}"
+          sudo cp -rf /tmp/package "${NPM_LIB}"
           npm --version
 
       - name: Install dependencies
