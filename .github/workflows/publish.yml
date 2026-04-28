@@ -1,5 +1,18 @@
 name: Publish to npm
 
+# OIDC Trusted Publishing — no npm token required.
+#
+# One-time setup on npmjs.com (per package):
+#   Package → Publishing → Automated Publishing → Add trusted publisher
+#     Repository : solutionsunity/odoo-surface-mcp
+#     Workflow   : publish.yml
+#     Environment: npm
+#
+# Critical constraints (all three must hold or publish will fail):
+#   1. npm 11.5.1+ is required for OIDC support  →  "Upgrade npm" step below
+#   2. setup-node must NOT have registry-url      →  registry-url blocks OIDC
+#   3. id-token: write permission must be present →  provides the OIDC token
+
 on:
   push:
     tags:
