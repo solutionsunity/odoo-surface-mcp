@@ -10,7 +10,7 @@ User-equivalent Odoo access for AI agents — what the authenticated user can do
 
 ## Prerequisites
 
-A running Odoo instance (16.0+, CE or EE) and an MCP-compatible client (e.g. Claude Desktop).
+A running Odoo instance (16.0+, CE or EE) and an MCP-compatible client (e.g. VS Code, Claude Desktop, Claude Code).
 
 ### Install `uv`
 
@@ -40,6 +40,8 @@ Then make `uvx` visible to MCP clients (non-login shells):
 ```bash
 sudo ln -s $(which uvx) /usr/local/bin/uvx
 ```
+
+> **Important:** After installing `uv`, fully close and reopen your AI client (VS Code, Claude Code, Claude Desktop, etc.) so it picks up the new `uvx` command.
 
 ## Configure your MCP client
 
