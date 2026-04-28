@@ -13,10 +13,26 @@ name: Publish to npm
 #   2. registry-url MUST be set in setup-node     →  writes .npmrc registry config; OIDC needs it
 #   3. id-token: write permission must be present →  provides the OIDC token
 #
-# Why corepack does NOT work here:
-#   corepack only intercepts `npm` when `packageManager` is set in package.json.
-#   Without it, `corepack prepare npm@latest --activate` downloads npm but does not
-#   update the npm binary in PATH — the old broken version is still used.
+# Hard-won lessons from debugging (do not revert these without understanding why):
+#
+#   ❌ npm install -g npm@latest
+#      Fails on GitHub runners with MODULE_NOT_FOUND (promise-retry missing from the
+#      bundled npm). The installed npm is broken and cannot upgrade itself.
+#
+#   ❌ corepack prepare npm@latest --activate
+#      Prints "Preparing npm@latest for immediate activation..." but npm --version
+#      still shows the old version. Corepack only intercepts `npm` calls when
+#      `packageManager` is declared in package.json — without it, PATH is unchanged.
+#
+#   ❌ omitting registry-url from setup-node
+#      Without registry-url, setup-node writes no .npmrc. npm has no registry config
+#      anchor and will not attempt the OIDC token exchange → ENEEDAUTH.
+#
+#   ✅ tarball replacement (current approach)
+#      Download the npm tarball via curl/python3 (no npm needed), extract to /tmp,
+#      resolve the installed npm path via `node -e process.execPath`, replace in-place
+#      with sudo cp. The PATH binary still points to the same wrapper script, but now
+#      executes the new npm code. Confirmed by npm --version printing 11.x after the step.
 
 on:
   push:
