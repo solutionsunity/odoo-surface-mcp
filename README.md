@@ -21,6 +21,11 @@ A running Odoo instance (16.0+, CE or EE) and an MCP-compatible client (e.g. Cla
 brew install uv
 ```
 
+Then make `uvx` visible to MCP clients (non-login shells):
+```bash
+sudo ln -s $(which uvx) /usr/local/bin/uvx
+```
+
 **Windows**
 ```powershell
 winget install --id=astral-sh.uv
@@ -29,6 +34,11 @@ winget install --id=astral-sh.uv
 **Linux**
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then make `uvx` visible to MCP clients (non-login shells):
+```bash
+sudo ln -s $(which uvx) /usr/local/bin/uvx
 ```
 
 ## Configure your MCP client
