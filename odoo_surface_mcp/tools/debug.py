@@ -1,6 +1,5 @@
 """Debug tools — only registered when server is started with --debug."""
 import os
-import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from typing import Optional
@@ -104,8 +103,8 @@ def register(mcp: FastMCP, client: OdooClient, cache: Cache) -> None:
     # ------------------------------------------------------------------
 
     @mcp.tool(description=(
-        "[DEBUG] Run a read-only SQL query against the Odoo DB. "
-        "Only SELECT statements are allowed."
+        "[DEBUG] Run a read-only SQL query against the Odoo DB via RPC. "
+        "Only SELECT statements are allowed. Works with any remote Odoo instance."
     ))
     def query_db(sql: str) -> dict:
         import re as _re
@@ -115,9 +114,6 @@ def register(mcp: FastMCP, client: OdooClient, cache: Cache) -> None:
         cleaned = _re.sub(r"/\*.*?\*/", " ", cleaned, flags=_re.DOTALL)
         cleaned = cleaned.strip()
 
-        # Reject multi-statement injections: only one statement allowed
-        # A semicolon anywhere (even at the very end after stripping) is rejected
-        # unless it is the trailing terminator with nothing after it.
         without_trailing = cleaned.rstrip(";").strip()
         if ";" in without_trailing:
             return {"error": "Only a single SELECT statement is allowed. No semicolons permitted."}
@@ -125,24 +121,17 @@ def register(mcp: FastMCP, client: OdooClient, cache: Cache) -> None:
         if not without_trailing.upper().startswith("SELECT"):
             return {"error": "Only SELECT queries are allowed."}
 
-        db = client.db
-        try:
-            # Wrap in an explicit READ ONLY transaction so even if the guard
-            # is somehow bypassed the DB refuses any write.
-            safe_sql = f"BEGIN READ ONLY; {without_trailing}; ROLLBACK;"
-            cmd = [
-                "sudo", "-u", "odoo", "psql",
-                "-d", db, "-P", "pager=off", "-t", "-A", "-F", "\t",
-                "-c", safe_sql,
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            if result.returncode != 0:
-                return {"error": result.stderr.strip()}
-            rows = [line.split("\t") for line in result.stdout.strip().splitlines()
-                    if line and not line.startswith("BEGIN") and not line.startswith("ROLLBACK")]
-            return {"rows": rows, "count": len(rows)}
-        except Exception as exc:
-            return {"error": str(exc)}
+        # Raw psql is intentionally removed — it only works on localhost.
+        # The proper alternative for remote DB inspection is to use the
+        # search_records / list_records MCP tools instead.
+        return {
+            "error": (
+                "query_db is not available for remote Odoo instances. "
+                "Raw SQL requires direct PostgreSQL access which is not possible via JSON-RPC. "
+                "Use list_records / search_records tools instead, "
+                "or connect directly to the remote DB using an external SQL client."
+            )
+        }
 
     # ------------------------------------------------------------------
     # Cache
