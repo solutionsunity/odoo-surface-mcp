@@ -28,7 +28,7 @@ sudo ln -s $(which uvx) /usr/local/bin/uvx
 
 **Windows**
 ```powershell
-winget install --id=astral-sh.uv
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 **Linux**
