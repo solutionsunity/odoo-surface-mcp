@@ -72,14 +72,17 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'Writes both form-view fields and model fields not exposed in the form view. ' +
         'One2many / many2many fields accept Odoo Command tuples directly: ' +
         '[[0,0,{vals}]] create+link, [[1,id,{vals}]] update line, [[2,id]] delete line, [[6,0,[ids]]] replace set. ' +
+        'Pass context to control write behaviour — e.g. {lang: "fr_FR"} writes the value for that language ' +
+        'on translate=True fields, {mail_notrack: true} suppresses chatter entries. ' +
         'Returns {success, updated_fields, non_form_fields} or {error}.',
       inputSchema: {
         model: z.string(),
         record_id: z.number().int(),
         values: z.record(z.unknown()),
+        context: z.record(z.unknown()).optional(),
       },
     },
-    async ({ model, record_id, values }) => {
+    async ({ model, record_id, values, context }) => {
       try {
         const formFields = new Set(await viewFieldNames(client, cache, model, 'form'));
         const meta = await client.execute(model, 'fields_get', [], { attributes: ['readonly'] }) as Record<string, { readonly?: boolean }>;
@@ -90,7 +93,9 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           }
         }
         if (!Object.keys(writable).length) return ok({ error: 'No writable fields found in the provided values.' });
-        await client.execute(model, 'write', [[record_id], writable]);
+        const kwargs: Record<string, unknown> = {};
+        if (context && Object.keys(context).length) kwargs['context'] = context;
+        await client.execute(model, 'write', [[record_id], writable], kwargs);
         const nonFormWritten = Object.keys(writable).filter(k => !formFields.has(k));
         const result: Record<string, unknown> = { success: true, updated_fields: Object.keys(writable) };
         if (nonFormWritten.length) result['non_form_fields'] = nonFormWritten;

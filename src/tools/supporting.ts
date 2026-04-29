@@ -1,6 +1,7 @@
 /**
- * Layer 3 — Supporting tools: list_records, get_record, search_records,
- * get_fields, get_defaults, get_filters, list_snippets, get_snippet.
+ * Layer 3 — Supporting tools: list_records, get_record (+ fields/context), search_records,
+ * get_fields, get_defaults, get_filters, list_snippets, get_snippet,
+ * list_attachments, fetch_and_upload, translation_get, translation_update.
  * Also exports shared helpers used by other layers.
  */
 import { readFile } from 'fs/promises';
@@ -149,6 +150,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
       description:
         'Return a paginated list of records visible in the list view for a model. ' +
         'Pass action_id to scope results to the action\'s domain (e.g. only draft orders). ' +
+        'Pass context to control read behaviour — e.g. {lang: "fr_FR"} returns translated field values, ' +
+        '{active_test: false} includes archived records. ' +
         'Returns {total, offset, limit, records[]} with the columns from the list view.',
       inputSchema: {
         model: z.string(),
@@ -156,18 +159,22 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         limit: z.number().int().default(40),
         offset: z.number().int().default(0),
         order: z.string().optional(),
+        context: z.record(z.unknown()).optional(),
       },
     },
-    async ({ model, action_id, limit, offset, order }) => {
+    async ({ model, action_id, limit, offset, order, context }) => {
       try {
-        const [domain, context] = await actionDomainContext(client, cache, action_id);
+        const [domain, actionCtx] = await actionDomainContext(client, cache, action_id);
+        const mergedCtx = { ...actionCtx, ...(context ?? {}) };
         let fields = await viewFieldNames(client, cache, model, 'list');
         if (!fields.length) fields = ['display_name'];
         const kwargs: Record<string, unknown> = { fields, limit, offset };
         if (order) kwargs['order'] = order;
-        if (Object.keys(context).length) kwargs['context'] = context;
+        if (Object.keys(mergedCtx).length) kwargs['context'] = mergedCtx;
         const records = await client.execute(model, 'search_read', [domain], kwargs);
-        const total = await client.execute(model, 'search_count', [domain]);
+        const countKwargs: Record<string, unknown> = {};
+        if (Object.keys(mergedCtx).length) countKwargs['context'] = mergedCtx;
+        const total = await client.execute(model, 'search_count', [domain], countKwargs);
         return ok({ total, offset, limit, records });
       } catch (e) { return ok({ error: String(e) }); }
     },
@@ -177,15 +184,24 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'get_record',
     {
       description:
-        'Return all form-view field values for a single record. ' +
-        'Only fields the user can see in the form view are returned.',
-      inputSchema: { model: z.string(), record_id: z.number().int() },
+        'Return form-view field values for a single record. ' +
+        'Pass fields to fetch a specific subset instead of all form-view fields. ' +
+        'Pass context to control read behaviour — e.g. {lang: "fr_FR"} returns field values ' +
+        'in that language for all translate=True fields on the record.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.number().int(),
+        fields: z.array(z.string()).optional(),
+        context: z.record(z.unknown()).optional(),
+      },
     },
-    async ({ model, record_id }) => {
+    async ({ model, record_id, fields: reqFields, context }) => {
       try {
-        let fields = await viewFieldNames(client, cache, model, 'form');
+        let fields = reqFields?.length ? reqFields : await viewFieldNames(client, cache, model, 'form');
         if (!fields.length) fields = ['display_name'];
-        const rows = await client.execute(model, 'read', [[record_id]], { fields }) as unknown[];
+        const kwargs: Record<string, unknown> = { fields };
+        if (context && Object.keys(context).length) kwargs['context'] = context;
+        const rows = await client.execute(model, 'read', [[record_id]], kwargs) as unknown[];
         if (!rows.length) return ok({ error: `Record ${model}:${record_id} not found or not accessible.` });
         return ok(rows[0]);
       } catch (e) { return ok({ error: String(e) }); }
@@ -200,6 +216,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'query: free-text name search (optional). ' +
         'domain: Odoo domain e.g. [["state","=","draft"]] (optional). ' +
         'action_id: scope search to the action\'s domain. ' +
+        'Pass context for search-time behaviour — e.g. {active_test: false} finds archived records, ' +
+        '{lang: "fr_FR"} matches and returns display_name in that language. ' +
         'Returns [{id, display_name}] up to limit.',
       inputSchema: {
         model: z.string(),
@@ -207,20 +225,23 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         domain: z.array(z.unknown()).optional(),
         action_id: z.number().int().optional(),
         limit: z.number().int().default(20),
+        context: z.record(z.unknown()).optional(),
       },
     },
-    async ({ model, query, domain, action_id, limit }) => {
+    async ({ model, query, domain, action_id, limit, context }) => {
       try {
-        const [actionDomain] = await actionDomainContext(client, cache, action_id);
+        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id);
+        const mergedCtx = { ...actionCtx, ...(context ?? {}) };
         const combined = [...actionDomain, ...(domain ?? [])];
+        const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};
         if (query) {
           const results = await client.execute(model, 'name_search', [query], {
-            args: combined, limit,
+            args: combined, limit, ...ctxKwarg,
           }) as Array<[number, string]>;
           return ok(results.map(r => ({ id: r[0], display_name: r[1] })));
         }
         return ok(await client.execute(model, 'search_read', [combined], {
-          fields: ['id', 'display_name'], limit,
+          fields: ['id', 'display_name'], limit, ...ctxKwarg,
         }));
       } catch (e) { return ok([{ error: String(e) }]); }
     },
@@ -443,6 +464,64 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         }
         const src = is_image ? `/web/image/${attachId}` : `/web/content/${attachId}`;
         return ok({ id: attachId, src, name: result?.['name'] ?? filename });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  // ─── Translation tools ───────────────────────────────────────────────────────
+
+  server.registerTool(
+    'translation_get',
+    {
+      description:
+        'Read all language translations for a translatable field on a record. ' +
+        'Works on any field with translate=True (char fields: returns one entry per language) ' +
+        'or callable translate (html / arch_db: returns one entry per translatable term per language). ' +
+        'langs: optional list of language codes to filter (e.g. ["fr_FR", "ar_001"]); ' +
+        'omit to return all installed languages. ' +
+        'Returns {translations: [{lang, source, value}], translation_type, translation_show_source} or {error}.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.number().int(),
+        field_name: z.string(),
+        langs: z.array(z.string()).optional(),
+      },
+    },
+    async ({ model, record_id, field_name, langs }) => {
+      try {
+        const kwargs: Record<string, unknown> = {};
+        if (langs?.length) kwargs['langs'] = langs;
+        const result = await client.execute(
+          model, 'get_field_translations', [[record_id], field_name], kwargs,
+        ) as [Array<{ lang: string; source: string; value: string }>, Record<string, unknown>];
+        const [translations, meta] = result;
+        return ok({ translations, ...meta });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  server.registerTool(
+    'translation_update',
+    {
+      description:
+        'Write translations for a translatable field on a record. ' +
+        'For char fields (translate=True): translations = {"fr_FR": "Bonjour", "ar_001": "مرحبا"}. ' +
+        'For html / arch_db fields (callable translate): translations = {"fr_FR": {"English source term": "French translation"}}. ' +
+        'The target language must be installed in Odoo (Settings → Languages). ' +
+        'Returns {success: true} or {error}.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.number().int(),
+        field_name: z.string(),
+        translations: z.record(z.unknown()),
+      },
+    },
+    async ({ model, record_id, field_name, translations }) => {
+      try {
+        await client.execute(
+          model, 'update_field_translations', [[record_id], field_name, translations],
+        );
+        return ok({ success: true });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
