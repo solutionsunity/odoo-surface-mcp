@@ -73,6 +73,45 @@ ODOO_PASSWORD=your_api_key_here
 
 API keys can be revoked individually from the same screen without changing the account password.
 
+## Advanced Configuration
+
+### Multiple Odoo instances
+
+Technical users commonly work with more than one Odoo instance (local dev, staging, production).
+Each instance gets its own named entry in the MCP config — they run as independent processes with
+fully isolated credentials. The AI client exposes them as separate tool namespaces.
+
+```json
+{
+  "mcpServers": {
+    "odoo-local": {
+      "command": "npx",
+      "args": ["-y", "@suco/odoo-surface-mcp@latest"],
+      "env": {
+        "ODOO_URL": "http://localhost:8069",
+        "ODOO_DB": "dev",
+        "ODOO_USER": "admin",
+        "ODOO_PASSWORD": "dev_api_key"
+      }
+    },
+    "odoo-production": {
+      "command": "npx",
+      "args": ["-y", "@suco/odoo-surface-mcp@latest"],
+      "env": {
+        "ODOO_URL": "https://mycompany.odoo.com",
+        "ODOO_DB": "prod",
+        "ODOO_USER": "admin",
+        "ODOO_PASSWORD": "prod_api_key"
+      }
+    }
+  }
+}
+```
+
+> **Note:** The `.env` file approach (Option A) does not work for multi-instance setups — both
+> processes share the same working directory and would load the same file. Use the `env` block
+> per entry instead.
+
 ## Debug mode
 
 Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `inspect_fields`, `dump_cache`, `clear_cache`, `restart_mcp`.
@@ -89,31 +128,6 @@ Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `i
 | Planning | `get_available_actions` |
 | Supporting | `list_records`, `get_record`, `search_records`, `get_fields`, `get_defaults`, `get_filters`, `list_snippets`, `get_snippet`, `list_attachments`, `fetch_and_upload`, `translation_get`, `translation_update` |
 | Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity` |
-
-### Context parameter (v0.4.0)
-
-`list_records`, `get_record`, `search_records`, `create`, and `update` now accept an optional `context` object passed directly to the Odoo ORM call:
-
-- `{lang: "fr_FR"}` — read or write field values in a specific language
-- `{active_test: false}` — include archived records in search/list results
-- `{mail_notrack: true}` — suppress chatter entries on write
-
-### Translation tools (v0.4.0)
-
-`translation_get` and `translation_update` expose Odoo's internal translation API (`get_field_translations` / `update_field_translations`) for granular per-language, per-term control over translatable fields (`char`, `text`, `html`, `arch_db`).
-
-```json
-// Read all translations for a field
-{ "model": "product.template", "record_id": 1, "field_name": "name" }
-
-// Write a char field translation
-{ "model": "product.template", "record_id": 1, "field_name": "name",
-  "translations": {"fr_FR": "Mon Produit", "ar_001": "منتجي"} }
-
-// Write an html field translation (term-mapped)
-{ "model": "slide.channel", "record_id": 1, "field_name": "description_html",
-  "translations": {"fr_FR": {"English term": "French term"}} }
-```
 
 ## Architecture
 
