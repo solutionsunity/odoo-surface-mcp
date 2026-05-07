@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { OdooClient } from './odooClient.js';
 import { Cache } from './cache.js';
+import { register as registerGuidance } from './tools/guidance.js';
 import { register as registerDiscovery } from './tools/discovery.js';
 import { register as registerPlanning } from './tools/planning.js';
 import { register as registerSupporting } from './tools/supporting.js';
@@ -15,9 +16,11 @@ export function createServer(debug = false): { server: McpServer; client: OdooCl
 
   const server = new McpServer({
     name: 'odoo-surface',
-    version: '0.3.0',
+    version: '0.4.1',
   });
 
+  // Layer 0 — Guidance (skills + workflows; canonical recipes for deterministic tool composition)
+  registerGuidance(server, client, cache);
   // Layer 1 — Discovery
   registerDiscovery(server, client, cache);
   // Layer 2 — Planning Bridge

@@ -1,6 +1,6 @@
 {
   "name": "@suco/odoo-surface-mcp",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "User-equivalent Odoo access for AI agents via MCP",
   "type": "module",
   "main": "dist/index.js",
@@ -16,6 +16,7 @@
     "@modelcontextprotocol/sdk": "^1.11.0",
     "dotenv": "^16.4.0",
     "fast-xml-parser": "^4.4.0",
+    "yaml": "^2.8.4",
     "zod": "^3.23.0"
   },
   "devDependencies": {
