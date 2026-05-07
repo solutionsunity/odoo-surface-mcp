@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
-import { ok } from '../utils.js';
+import { ok, GUIDANCE_HINT } from '../utils.js';
 
 export function register(server: McpServer, client: OdooClient, _cache: Cache): void {
 
@@ -67,6 +67,7 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
     'set_page_arch',
     {
       description:
+        GUIDANCE_HINT +
         'Write arch_db XML to an ir.ui.view. Use view_id from get_page_arch. ' +
         'The caller is fully responsible for valid, well-formed XML.',
       inputSchema: { view_id: z.number().int(), arch: z.string() },
@@ -82,7 +83,7 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
   server.registerTool(
     'set_page_visibility',
     {
-      description: 'Publish or unpublish a website page.',
+      description: GUIDANCE_HINT + 'Publish or unpublish a website page.',
       inputSchema: { page_id: z.number().int(), is_published: z.boolean() },
     },
     async ({ page_id, is_published }) => {

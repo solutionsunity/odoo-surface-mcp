@@ -6,7 +6,7 @@ hint: |
   For translating a full blog post (title + subtitle + content + cover), prefer
   workflow `translate_blog_post` — it sequences the field-type variants correctly.
 applies_to:
-  field_types: [html_translate]
+  field_types: [html_translate, xml_translate]
   models: ["*"]
   operations: [translate]
 tools_used: [get_fields, translation_get, translation_update]
@@ -20,6 +20,12 @@ anti_patterns:
 ---
 
 # Skill: Translate an HTML field (`translate=html_translate`)
+
+This skill covers both `html_translate` and `xml_translate` fields. `xml_translate` is used by `ir.ui.view.arch_db` (QWeb views, website pages). Both callables walk the DOM/XML at save time and register **one term per text node** — the procedure is identical for both.
+
+> **`xml_translate` note:** `arch_db` lives on `ir.ui.view`, not on `website.page` directly. Reach it via the page's `view_id` field. All steps below apply unchanged.
+
+---
 
 Odoo's `html_translate` callable walks the DOM at save time and registers **one term per text node**. Inline tags (`<strong>`, `<i>`, `<a>`) are kept **inside** the parent text node — a paragraph with bold words is one term, not three. The full HTML blob is **never** registered as a single term.
 

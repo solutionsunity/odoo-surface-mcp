@@ -9,7 +9,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
-import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
+import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
 
 // ─── XML helpers ────────────────────────────────────────────────────────────
 
@@ -429,6 +429,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'fetch_and_upload',
     {
       description:
+        GUIDANCE_HINT +
         'Load a file from a URL or local absolute path and store it as an Odoo ir.attachment. ' +
         'The MCP server handles the transfer — no binary passes through the AI context. ' +
         'Returns {id, src} usable in any context (arch_db, chatter, record field).',
@@ -504,6 +505,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'translation_update',
     {
       description:
+        GUIDANCE_HINT +
         'Write translations for a translatable field on a record. ' +
         'For char fields (translate=True): translations = {"fr_FR": "Bonjour", "ar_001": "مرحبا"}. ' +
         'For html / arch_db fields (callable translate): translations = {"fr_FR": {"English source term": "French translation"}}. ' +

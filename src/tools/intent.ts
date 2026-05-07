@@ -6,7 +6,7 @@ import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { resolveContext, viewFieldNames, safeEvalDict } from './supporting.js';
 import { collectModelActions } from './discovery.js';
-import { ok } from '../utils.js';
+import { ok, GUIDANCE_HINT } from '../utils.js';
 
 function isOdooCommand(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0
@@ -42,6 +42,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'create',
     {
       description:
+        GUIDANCE_HINT +
         'Create a new record. values: dict of field/value pairs (form-view fields only). ' +
         'Defaults are merged with provided values automatically. ' +
         'Pass action_id to include the action\'s context (e.g. default_partner_id). ' +
@@ -68,6 +69,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'update',
     {
       description:
+        GUIDANCE_HINT +
         'Update fields on an existing record. values: {field: value, ...}. ' +
         'Writes both form-view fields and model fields not exposed in the form view. ' +
         'One2many / many2many fields accept Odoo Command tuples directly: ' +
@@ -108,6 +110,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'execute_action',
     {
       description:
+        GUIDANCE_HINT +
         'Execute a button or server action on a record. ' +
         'action: button name (method) or label as shown in get_model_actions — ' +
         'e.g. "action_confirm", "Confirm", "Privacy Lookup". ' +
@@ -176,6 +179,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'archive',
     {
       description:
+        GUIDANCE_HINT +
         'Archive (deactivate) a record by setting active=False. ' +
         'Only works on models that have an active field (most standard models do). ' +
         'Returns {success: true} or {error}.',

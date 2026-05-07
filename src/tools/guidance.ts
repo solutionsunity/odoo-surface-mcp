@@ -104,15 +104,19 @@ export function register(server: McpServer, _client: OdooClient, _cache: Cache):
     } catch (e) { return ok({ error: String(e) }); }
   });
 
-  server.registerTool('get_skill', {
-    description: 'Return one skill in full: frontmatter + markdown body + used_in back-references.',
-    inputSchema: { name: z.string() },
-  }, async ({ name }) => {
+  server.registerTool('get_skills', {
+    description: 'Return one or more skills in full: frontmatter + markdown body + used_in back-references. ' +
+      'Pass a single name or multiple names in the array. Missing names return {name, error} in the same array (partial success).',
+    inputSchema: { names: z.array(z.string()) },
+  }, async ({ names }) => {
     try {
-      const skill = loadSkills().find(s => s.front.name === name);
-      if (!skill) return ok({ error: `skill '${name}' not found` });
-      const usedIn = buildUsedIn(loadWorkflows()).get(name) ?? [];
-      return ok({ ...skill.front, used_in: usedIn, body: skill.body });
+      const all = loadSkills();
+      const usedIn = buildUsedIn(loadWorkflows());
+      return ok(names.map(name => {
+        const skill = all.find(s => s.front.name === name);
+        if (!skill) return { name, error: `skill '${name}' not found` };
+        return { ...skill.front, used_in: usedIn.get(name) ?? [], body: skill.body };
+      }));
     } catch (e) { return ok({ error: String(e) }); }
   });
 
@@ -159,25 +163,29 @@ export function register(server: McpServer, _client: OdooClient, _cache: Cache):
     } catch (e) { return ok({ error: String(e) }); }
   });
 
-  server.registerTool('get_workflow', {
+  server.registerTool('get_workflows', {
     description:
-      'Return one workflow in full: frontmatter + markdown body. With expand_skills=true, ' +
-      'also append the body of every skill listed in `skills:` (composition view).',
-    inputSchema: { name: z.string(), expand_skills: z.boolean().optional() },
-  }, async ({ name, expand_skills }) => {
+      'Return one or more workflows in full: frontmatter + markdown body. ' +
+      'Pass a single name or multiple names in the array. With expand_skills=true, ' +
+      'each workflow also includes the full body of every skill it composes. ' +
+      'Missing names return {name, error} in the same array (partial success).',
+    inputSchema: { names: z.array(z.string()), expand_skills: z.boolean().optional() },
+  }, async ({ names, expand_skills }) => {
     try {
-      const wf = loadWorkflows().find(w => w.front.name === name);
-      if (!wf) return ok({ error: `workflow '${name}' not found` });
-      const result: Record<string, unknown> = { ...wf.front, body: wf.body };
-      if (expand_skills) {
-        const allSkills = loadSkills();
-        const expanded = (wf.front.skills ?? []).map(sn => {
-          const sk = allSkills.find(s => s.front.name === sn);
-          return sk ? { name: sn, body: sk.body } : { name: sn, error: 'skill not found' };
-        });
-        result.expanded_skills = expanded;
-      }
-      return ok(result);
+      const allWf = loadWorkflows();
+      const allSkills = expand_skills ? loadSkills() : [];
+      return ok(names.map(name => {
+        const wf = allWf.find(w => w.front.name === name);
+        if (!wf) return { name, error: `workflow '${name}' not found` };
+        const result: Record<string, unknown> = { ...wf.front, body: wf.body };
+        if (expand_skills) {
+          result.expanded_skills = (wf.front.skills ?? []).map(sn => {
+            const sk = allSkills.find(s => s.front.name === sn);
+            return sk ? { name: sn, body: sk.body } : { name: sn, error: 'skill not found' };
+          });
+        }
+        return result;
+      }));
     } catch (e) { return ok({ error: String(e) }); }
   });
 }

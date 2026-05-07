@@ -16,7 +16,7 @@ export function createServer(debug = false): { server: McpServer; client: OdooCl
 
   const server = new McpServer({
     name: 'odoo-surface',
-    version: '0.4.1',
+    version: '0.4.2',
   });
 
   // Layer 0 — Guidance (skills + workflows; canonical recipes for deterministic tool composition)

@@ -1,4 +1,8 @@
 /** Shared utilities used across tool modules. */
+
+// ─── Guidance hint ────────────────────────────────────────────────────────────
+/** Prepend to mutating tool descriptions so agents check skills/workflows first. */
+export const GUIDANCE_HINT = '💡 Before multi-step work, check find_skill / list_workflows for canonical recipes. ';
 import { XMLParser } from 'fast-xml-parser';
 
 // ─── XML ─────────────────────────────────────────────────────────────────────
