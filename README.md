@@ -124,11 +124,41 @@ Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `i
 
 | Layer | Tools |
 |---|---|
+| Guidance | `list_skills`, `get_skills`, `find_skill`, `list_workflows`, `get_workflows` |
 | Discovery | `get_models`, `get_model_actions`, `get_model_interface` |
 | Planning | `get_available_actions` |
 | Supporting | `list_records`, `get_record`, `search_records`, `get_fields`, `get_defaults`, `get_filters`, `list_snippets`, `get_snippet`, `list_attachments`, `fetch_and_upload`, `translation_get`, `translation_update` |
-| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity` |
+| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity`, `set_page_arch`, `set_page_visibility` |
 
 ## Architecture
 
-See [SURFACE.md](SURFACE.md) for the design contract, layer rationale, and planning loop.
+### Core Contract
+
+The agent may only do what the authenticated user can do in their browser. Scope is bounded by the
+user's menus, views, and ACL — nothing more. Tool verbs express functional intent (publish, confirm)
+rather than raw ORM operations. Discovery is lazy: the agent resolves only what the current prompt
+requires.
+
+### Layered Tool Surface
+
+| Layer | Role | When invoked |
+|---|---|---|
+| **0 — Guidance** | Canonical recipes (skills, workflows) the agent consults before any multi-step operation. Pure documentation, no side effects. | Before planning |
+| **1 — Discovery** | Establishes the bounded universe of models and reachable relations for the current user. | At intent resolution |
+| **2 — Planning Bridge** | Answers "what is live on this specific record right now" — record-state-aware actions. | Once a record is identified |
+| **3 — Supporting** | Read-only data fetchers used silently to fill gaps in the agent's plan. | Throughout planning |
+| **4 — Intent** | Mutating actions that fulfill the user's request — bounded by the user's UI permissions. | Final execution |
+
+### Planning Loop
+
+```
+User prompt
+  ├── Discovery       — what models/relations does this user have?
+  ├── (optional)      — locate the specific record
+  ├── Planning Bridge — what is live on that record right now?
+  ├── Guidance        — consult skills/workflows for multi-step recipes
+  └── Intent          — execute the mutation(s)
+```
+
+Skills and workflows are authored in `skills/` and `workflows/` as markdown with YAML
+frontmatter; they are exposed as Layer 0 tools at runtime.

@@ -68,7 +68,7 @@ function assert(cond, msg) {
 
     // ── list_skills ──────────────────────────────────────────────────────────
     const ls = unwrap(await send('tools/call', { name: 'list_skills', arguments: {} }));
-    assert(Array.isArray(ls) && ls.length === 5, `list_skills returns 5 entries (got ${ls.length})`);
+    assert(Array.isArray(ls) && ls.length === 6, `list_skills returns 6 entries (got ${ls.length})`);
     const html = ls.find(s => s.name === 'translate_html_field');
     assert(html && Array.isArray(html.used_in) && html.used_in.includes('translate_blog_post'),
       `translate_html_field.used_in includes translate_blog_post`);
@@ -77,6 +77,7 @@ function assert(cond, msg) {
     assert(ls.find(s => s.name === 'upload_attachment'), 'upload_attachment skill present');
     assert(ls.find(s => s.name === 'inject_snippet'), 'inject_snippet skill present');
     assert(ls.find(s => s.name === 'edit_view_arch'), 'edit_view_arch skill present');
+    assert(ls.find(s => s.name === 'generate_diagram_png'), 'generate_diagram_png skill present');
 
     // ── get_skills (batch) ───────────────────────────────────────────────────
     const gs = unwrap(await send('tools/call', { name: 'get_skills', arguments: { names: ['translate_html_field', 'translate_char_field'] } }));
