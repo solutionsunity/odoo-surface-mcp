@@ -1,25 +1,32 @@
 ---
 name: edit_view_arch
-summary: Read arch_db once, mutate in memory, write back in a single call. The canonical pattern for any existing page edit.
+summary: Safely mutate Odoo Website/QWeb view architecture (XML).
 hint: |
-  Use for modifying existing content in a view (brownfield). For adding new snippet
-  blocks to a greenfield or empty page, prefer `inject_snippet`. Both skills use
-  get_page_arch + set_page_arch — the difference is intent and scope of the edit.
+  NEVER edit standard backend views (form/tree/search) via this skill.
+  Only for Website/QWeb templates.
 applies_to:
   models: [ir.ui.view]
   operations: [edit, update, website]
 tools_used: [get_page_arch, set_page_arch, get_record]
 preconditions:
-  - You have the `ir.ui.view` id. For a website.page, read `view_id` from the page record first.
-  - You know exactly what to change before calling get_page_arch — do not read then decide then read again.
+  - "The view is a Website or QWeb template (Type: qweb)."
+  - "You have the ir.ui.view id. For a website.page, read view_id from the page record first."
+  - "You know exactly what to change before calling get_page_arch."
 anti_patterns:
-  - "Calling get_page_arch multiple times before writing — read once, mutate in memory, write once. Two reads = stale context risk."
-  - "Writing partial arch (only the changed section) — set_page_arch replaces the full arch_db. Always write the complete document."
-  - "Editing arch_db directly via update('ir.ui.view', id, {arch_db: ...}) — use set_page_arch which validates and normalizes the XML."
-  - "Making multiple set_page_arch calls for one logical change — compose all mutations in memory first, write once."
+  - "Editing backend form/tree/search views (risk of breaking core UI and upgrade paths)."
+  - "Calling get_page_arch multiple times before writing — read once, mutate in memory, write once."
+  - "Writing partial arch (only the changed section) — set_page_arch replaces the full arch_db."
+  - "Editing arch_db directly via update('ir.ui.view', id, {arch_db: ...}) — use set_page_arch."
 ---
 
-# Skill: Edit an existing view arch
+# Skill: Edit a Website/QWeb view arch
+
+## Rule Zero: Scope Validation
+
+Before proceeding, confirm the view type.
+- **ALLOWED:** `website`, `qweb`, `report`.
+- **FORBIDDEN:** `form`, `tree`, `kanban`, `search`.
+Editing backend views via database `arch_db` creates technical debt and breaks during upgrades.
 
 ## Step 1 — Resolve view id
 

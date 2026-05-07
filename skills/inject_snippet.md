@@ -1,24 +1,31 @@
 ---
 name: inject_snippet
-summary: Fetch a canonical snippet via get_snippet and inject it into a view arch, preserving the outer wrapper Odoo's editor requires.
+summary: Fetch a canonical snippet and inject it into a Website view arch.
 hint: |
-  Use when building or extending page content from scratch (greenfield). For modifying
-  existing content blocks in-place, use `edit_view_arch` instead. Never hand-write
-  snippet outer wrappers from memory — always source HTML from `get_snippet`.
+  NEVER use this for backend views. Only for Website/QWeb templates.
+  Always source HTML from `get_snippet`.
 applies_to:
   models: [ir.ui.view]
   operations: [create, edit, inject, website]
 tools_used: [list_snippets, get_snippet, get_page_arch, set_page_arch]
 preconditions:
-  - You have the `ir.ui.view` id (or the `website.page` `view_id`) for the target page.
-  - The snippet name is known or discovered via `list_snippets`.
+  - "The view is a Website or QWeb template (Type: qweb)."
+  - "You have the ir.ui.view id (or the website.page view_id)."
+  - "The snippet name is known or discovered via list_snippets."
 anti_patterns:
-  - "Hand-writing snippet outer wrapper HTML from memory — Odoo's editor adds data-* attributes and class conventions that are non-obvious. Always call get_snippet."
-  - "Replacing the entire arch_db with only the new snippet — you lose all existing page content. Read arch first, inject into it, then write back."
-  - "Injecting snippets inside <head> or outside <body> — Odoo editor only manages content inside the main wrapping div."
+  - "Editing backend form/tree/search views."
+  - "Hand-writing snippet outer wrapper HTML from memory."
+  - "Replacing the entire arch_db with only the new snippet — you lose all existing content."
 ---
 
-# Skill: Inject a snippet into a page arch
+# Skill: Inject a snippet into a Website/QWeb arch
+
+## Rule Zero: Scope Validation
+
+Before proceeding, confirm the view type.
+- **ALLOWED:** `website`, `qweb`, `report`.
+- **FORBIDDEN:** `form`, `tree`, `kanban`, `search`.
+Snippets are designed for the Website editor; injecting them into backend views is invalid.
 
 ## Step 1 — Discover available snippets
 
