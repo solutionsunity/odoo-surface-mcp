@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.solutionsunity/odoo-surface-mcp",
+  "description": "Full Odoo access for AI agents via MCP: CRUD, website, translations, attachments, workflows.",
+  "repository": {
+    "url": "https://github.com/solutionsunity/odoo-surface-mcp",
+    "source": "github"
+  },
+  "version": "0.4.5",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@suco/odoo-surface-mcp",
+      "version": "0.4.5",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ODOO_URL",
+          "description": "Odoo instance URL (e.g. https://myodoo.com)",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "ODOO_DB",
+          "description": "Odoo database name",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "ODOO_USERNAME",
+          "description": "Odoo login username",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "ODOO_PASSWORD",
+          "description": "Odoo login password",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

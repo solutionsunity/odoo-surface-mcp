@@ -34,6 +34,7 @@
     "erp"
   ],
   "license": "MIT",
+  "mcpName": "io.github.solutionsunity/odoo-surface-mcp",
   "homepage": "https://solutionsunity.com/products/odoo-surface",
   "repository": {
     "type": "git",
