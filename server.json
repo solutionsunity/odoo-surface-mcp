@@ -6,13 +6,13 @@
     "url": "https://github.com/solutionsunity/odoo-surface-mcp",
     "source": "github"
   },
-  "version": "0.4.5",
+  "version": "0.4.6",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@suco/odoo-surface-mcp",
-      "version": "0.4.5",
+      "version": "0.4.6",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
