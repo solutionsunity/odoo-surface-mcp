@@ -68,7 +68,7 @@ Save the response to `tmp/<model>_<id>_<field>.json` shaped as:
   ]
 }
 ```
-- `source` — **never modify**. It is the lookup key Odoo uses internally.
+- `source` — **never modify**. Human-readable reference only.
 - `value` — fill in the translation. Leave empty to skip that term.
 
 ### Step 4 — Translate each `value`
@@ -82,12 +82,19 @@ Save the response to `tmp/<model>_<id>_<field>.json` shaped as:
 ```
 translation_update(
   model, record_id, field_name,
-  translations={ "<lang>": { "<source_1>": "<value_1>", "<source_2>": "<value_2>", ... } }
+  translations={ "<lang>": { "<key_1>": "<value_1>", "<key_2>": "<value_2>", ... } }
 )
 ```
-- Use the **map** form (`{ source: value }`) for HTML fields. The string form is for char/text fields and will silently no-op here.
+- Use the **map** form for HTML fields. The string form is for char/text fields and will silently no-op here.
 - Send all non-empty terms in one call. No need to loop.
 - Empty `value` entries: omit them from the map (don't push empty strings — they overwrite existing translations with empty).
+
+> **Critical — key selection rule** (root cause of silent failures):
+> `update_field_translations` walks the **currently stored arch** for the target language and matches map keys against the text nodes it finds there.
+> - If `value` is **empty** (term not yet translated): the stored arch has the English source text → use **`source`** as the map key.
+> - If `value` is **non-empty** (term already has a translation): the stored arch has the translated text → use **`value`** (the current translation) as the map key.
+>
+> Using `source` as the key for an already-translated term returns `success: true` but silently no-ops.
 
 ### Step 6 — Verify
 
@@ -103,6 +110,7 @@ Every `source` you pushed must now have a non-empty `value`. Any remaining empti
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `translation_update` returns `success: true`, frontend still shows source language | Passed full HTML blob as single key, or passed string instead of map | Re-extract via `translation_get`; use map form keyed on exact source strings |
-| Some terms translated, others not | Source strings were modified during editing | Restore `source` from a fresh `translation_get` |
+| `translation_update` returns `success: true`, frontend still shows source language | Passed full HTML blob as single key, or passed string instead of map | Re-extract via `translation_get`; use map form with correct key per rule below |
+| Some terms translated, others not | Wrong key used for existing vs new translations | Apply key selection rule: use `source` when `value` is empty; use `value` when `value` is non-empty |
+| Re-translation of existing term silently no-ops | Used `source` as key but arch already has translated content — key must match current arch text | Use current `value` from `translation_get` as the map key |
 | All terms translated but page still original language | Language not installed/active in res.lang, or wrong lang code (use `ar_001` not `ar`) | Verify with `search_records('res.lang', [['code','=','<lang>']])` |
