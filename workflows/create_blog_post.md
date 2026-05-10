@@ -23,16 +23,32 @@ Capture the target `blog.blog` id. If no blog exists, create one: `create('blog.
 
 ## Step 2 — Create the post skeleton
 
+Derive `seo_name` from the source-language title before calling `create`:
+apply `slugify_one` rules — lowercase, replace non-alphanumeric characters with spaces,
+collapse to single hyphens, strip leading/trailing hyphens.
+Example: `"MCP: The USB-C for AI"` → `"mcp-the-usb-c-for-ai"`.
+
+`seo_name` is **not translatable** — it is shared across all languages and becomes the URL slug
+for every locale. Setting it at creation time prevents Arabic (and any non-ASCII) translations
+from falling back to a bare numeric ID in the URL.
+
 ```
 create('blog.post', {
   blog_id: <blog_id>,
   name: '<Post Title>',
   subtitle: '<Post Subtitle>',
-  website_published: false,   # keep unpublished until content is ready
+  seo_name: '<slugified-source-title>',   # anchors URL slug for all languages
+  website_published: false,               # keep unpublished until content is ready
   is_published: false
 })
 ```
 Returns: `{ id: <post_id> }`
+
+Verify the slug was applied:
+```
+get_record('blog.post', <post_id>, fields=['website_url', 'seo_name'])
+```
+`website_url` must end with `<seo_name>-<id>`, not just `<id>`.
 
 ## Step 3 — Upload cover image
 
@@ -88,15 +104,19 @@ search_records('blog.tag', [['name', 'in', ['<tag1>', '<tag2>']]], fields=['id',
 update('blog.post', <post_id>, {tag_ids: [[6, 0, [<tag_id_1>, <tag_id_2>]]]})
 ```
 
-## Step 6 — SEO meta (optional)
+## Step 6 — SEO meta (optional but recommended before publishing)
 
 ```
 update('blog.post', <post_id>, {
   website_meta_title: '<SEO title>',
-  website_meta_description: '<Meta description>',
+  website_meta_description: '<Meta description — 150–160 chars>',
   website_meta_keywords: '<keyword1, keyword2>'
 })
 ```
+
+> SEO meta fields (`website_meta_title`, `website_meta_description`, `website_meta_keywords`) are
+> `translate=True` — each language stores its own value. Set them in the source language here;
+> translate them per-language in `translate_blog_post` (Step 2, SEO block).
 
 ## Step 7 — Publish
 
@@ -123,3 +143,4 @@ To translate this post into other languages: run workflow `translate_blog_post`.
 | Cover image not displayed | `cover_properties` JSON malformed or attachment not public | Verify JSON, set `public: true` on attachment |
 | Post not visible at URL | `is_published` still false | `update('blog.post', id, {is_published: true})` |
 | Snippet body not editable in browser editor | `data-snippet` attr stripped during inject | Re-inject using exact HTML from `get_snippet` |
+| Arabic/non-ASCII URL is a bare ID (`/blog/ai-4/7`) | `seo_name` not set at creation; `slug()` discards non-ASCII chars and falls back to `str(id)` | Set `seo_name` now: read `website_url` in source lang, extract the slug segment (strip leading path and trailing `-{id}`), write via `update('blog.post', id, {'seo_name': '<slug>'})` |

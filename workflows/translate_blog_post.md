@@ -49,9 +49,23 @@ update('blog.post', id, {'teaser_manual': false})    # clear so listing excerpt 
 ### Step 1 — Inspect the record
 
 ```
-get_record('blog.post', record_id, fields=['name', 'subtitle', 'teaser_manual', 'website_url'])
+get_record('blog.post', record_id, fields=['name', 'subtitle', 'teaser_manual', 'website_url', 'seo_name'])
 ```
 Capture source-language values. Skip `content` here — it is large; the skill reads only the registered terms via `translation_get`. Note `teaser_manual` for the Step 3 decision.
+
+**URL slug guard — run before translating anything:**
+`seo_name` is not translatable; it anchors the URL slug for every language. If it is `false`,
+non-ASCII languages (Arabic, CJK, etc.) will produce a bare numeric ID as the URL.
+
+```
+# if seo_name is false:
+# derive slug from the source-language website_url
+# website_url = "/blog/ai-4/why-your-ai-strategy-is-failing-2"
+# slug segment = last path component stripped of trailing "-{id}"  → "why-your-ai-strategy-is-failing"
+update('blog.post', record_id, {'seo_name': '<derived-slug>'})
+```
+Verify: re-read `website_url` and confirm it ends with `<seo_name>-<id>`.
+Only proceed to Step 2 once `seo_name` is confirmed set.
 
 ### Step 2 — Translate `name` and `subtitle`
 
@@ -78,21 +92,38 @@ Apply skill `translate_html_field`:
    - Term `value` is non-empty → key = current `value` (arch has existing translation).
 5. `translation_update('blog.post', id, 'content', translations={'<lang>': { key_1: new_value_1, ... }})` — single call, all terms.
 
-### Step 5 — Verify
+### Step 5 — Translate SEO meta (if set on source)
+
+SEO meta fields are `translate=True` — each language needs its own values. Check if they are set:
+```
+get_record('blog.post', id, fields=['website_meta_title', 'website_meta_description', 'website_meta_keywords'])
+```
+If set on source, apply `translate_char_field` per field, or write directly:
+```
+update('blog.post', id,
+  { website_meta_title: '<translated title>',
+    website_meta_description: '<translated description>',
+    website_meta_keywords: '<translated keywords>' },
+  context={'lang': '<lang>'}
+)
+```
+
+### Step 6 — Verify
 
 ```
 translation_get('blog.post', id, 'name',     langs=['<lang>'])
 translation_get('blog.post', id, 'subtitle', langs=['<lang>'])
 translation_get('blog.post', id, 'content',  langs=['<lang>'])
-get_record('blog.post', id, fields=['teaser', 'teaser_manual'], context={'lang': '<lang>'})
+get_record('blog.post', id, fields=['teaser', 'teaser_manual', 'website_url', 'website_meta_title'], context={'lang': '<lang>'})
 ```
 - `name`, `subtitle`: each returns one entry; `value` must be non-empty and match what you pushed.
 - `content`: every entry must have non-empty `value`. Empty entries indicate source-key mismatch — re-extract and retry only the affected terms.
 - `teaser` in target-lang context: must render in the target language. If still source-language, `teaser_manual` is set — revisit Step 3.
+- `website_url`: must be identical to the source-language URL (same `seo_name`-derived slug). If it shows a bare ID, the URL guard in Step 1 was missed — run it now.
 
-### Step 6 — Visual check (optional but recommended)
+### Step 7 — Visual check (optional but recommended)
 
-Visit `/<lang_short>/blog/<blog_slug>/<post_slug>` (e.g. `/ar/blog/ai/why-your-ai-strategy-is-failing-2`) to confirm the translated page renders. RTL languages should render right-to-left automatically if the language record's `direction` is `rtl`.
+Visit `/<lang_short>/blog/<blog_slug>/<post_slug>` (e.g. `/ar/blog/ai-4/why-your-ai-strategy-is-failing-its-not-the-llm-its-the-architecture-2`) to confirm the translated page renders. RTL languages should render right-to-left automatically if the language record's `direction` is `rtl`.
 
 ## Out of scope (handle separately)
 
@@ -105,7 +136,9 @@ Visit `/<lang_short>/blog/<blog_slug>/<post_slug>` (e.g. `/ar/blog/ai/why-your-a
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Translated page shows mixed languages | Some fields skipped or `content` had partial term coverage | Re-run Step 5 verification; identify empty entries; re-translate only those |
+| Translated page shows mixed languages | Some fields skipped or `content` had partial term coverage | Re-run Step 6 verification; identify empty entries; re-translate only those |
 | Blog listing excerpt stays in source language | `teaser_manual` is set (not translatable) so all languages share its value | Confirm with user, then `update('blog.post', id, {'teaser_manual': false})` to make `teaser` auto-derive per-language from translated `content` |
 | 404 on `/<lang>/blog/...` URL | Language not published on website, or website language list excludes target | Add the language to `website.language_ids` (publish it on the website) |
 | RTL not applied | `res.lang.direction` not set to `rtl` for the language | Update `res.lang` record: `update('res.lang', id, {direction: 'rtl'})` |
+| Non-ASCII URL is a bare numeric ID (`/blog/ai-4/7`) | `seo_name` not set; `slug()` converts non-ASCII title to empty string and falls back to `str(id)` | Run Step 1 URL slug guard: derive slug from source-lang `website_url`, set via `update('blog.post', id, {'seo_name': '<slug>'})` |
+| URL differs between languages | `seo_name` not set at creation; each language slugifies its own translated title | Same fix as above — `seo_name` is language-agnostic and unifies the URL across all locales |
