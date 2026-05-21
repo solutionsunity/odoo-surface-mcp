@@ -432,6 +432,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         GUIDANCE_HINT +
         'Load a file from a URL or local absolute path and store it as an Odoo ir.attachment. ' +
         'The MCP server handles the transfer — no binary passes through the AI context. ' +
+        'Pass attachment_id to replace an existing attachment in-place (same ID, no arch update needed). ' +
+        'Omit attachment_id to create a new attachment. ' +
         'Returns {id, src} usable in any context (arch_db, chatter, record field).',
       inputSchema: {
         source: z.string(),
@@ -440,9 +442,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         public: z.boolean().default(true),
         res_model: z.string().default('ir.ui.view'),
         res_id: z.number().int().optional(),
+        attachment_id: z.number().int().optional(),
       },
     },
-    async ({ source, name, is_image, public: isPublic, res_model, res_id }) => {
+    async ({ source, name, is_image, public: isPublic, res_model, res_id, attachment_id }) => {
       try {
         let buffer: Buffer;
         const isUrl = /^https?:\/\//i.test(source);
@@ -455,6 +458,18 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         }
         const data = buffer.toString('base64');
         const filename = name ?? source.split('/').pop()?.split('?')[0] ?? 'upload';
+
+        if (attachment_id !== undefined) {
+          // ── Replace existing attachment in-place ──────────────────────────
+          const writeVals: Record<string, unknown> = { datas: data };
+          if (name) writeVals['name'] = filename;
+          if (isPublic) writeVals['public'] = true;
+          await client.execute('ir.attachment', 'write', [[attachment_id], writeVals]);
+          const src = is_image ? `/web/image/${attachment_id}` : `/web/content/${attachment_id}`;
+          return ok({ id: attachment_id, src, name: filename });
+        }
+
+        // ── Create new attachment ─────────────────────────────────────────
         const params: Record<string, unknown> = { name: filename, data, res_model, is_image };
         if (res_id !== undefined) params['res_id'] = res_id;
         const result = await client.httpCall('/web_editor/attachment/add_data', params) as Record<string, unknown>;
