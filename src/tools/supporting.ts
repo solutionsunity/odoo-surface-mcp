@@ -425,6 +425,16 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
   );
 
+  // Extension → MIME map used by fetch_and_upload to set mimetype on in-place replace.
+  // Odoo's _compute_mimetype falls back to python-magic for plain-text files (CSS/JS/JSON),
+  // which returns text/plain. Providing the MIME explicitly avoids that.
+  const EXT_MIME: Record<string, string> = {
+    css: 'text/css', js: 'application/javascript', mjs: 'application/javascript',
+    json: 'application/json', html: 'text/html', htm: 'text/html',
+    svg: 'image/svg+xml', ttf: 'font/ttf', woff: 'font/woff', woff2: 'font/woff2',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  };
+
   server.registerTool(
     'fetch_and_upload',
     {
@@ -461,8 +471,13 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
 
         if (attachment_id !== undefined) {
           // ── Replace existing attachment in-place ──────────────────────────
-          const writeVals: Record<string, unknown> = { datas: data };
-          if (name) writeVals['name'] = filename;
+          // Always include `name` so Odoo's _compute_mimetype can derive the
+          // correct MIME from the extension (rather than falling back to
+          // python-magic binary detection which returns text/plain for CSS/JS).
+          const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+          const detectedMime = EXT_MIME[ext];
+          const writeVals: Record<string, unknown> = { datas: data, name: filename };
+          if (detectedMime) writeVals['mimetype'] = detectedMime;
           if (isPublic) writeVals['public'] = true;
           await client.execute('ir.attachment', 'write', [[attachment_id], writeVals]);
           const src = is_image ? `/web/image/${attachment_id}` : `/web/content/${attachment_id}`;
