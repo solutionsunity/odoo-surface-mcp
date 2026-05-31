@@ -68,7 +68,7 @@ function assert(cond, msg) {
 
     // ── list_skills ──────────────────────────────────────────────────────────
     const ls = unwrap(await send('tools/call', { name: 'list_skills', arguments: {} }));
-    assert(Array.isArray(ls) && ls.length === 6, `list_skills returns 6 entries (got ${ls.length})`);
+    assert(Array.isArray(ls) && ls.length === 8, `list_skills returns 8 entries (got ${ls.length})`);
     const html = ls.find(s => s.name === 'translate_html_field');
     assert(html && Array.isArray(html.used_in) && html.used_in.includes('translate_blog_post'),
       `translate_html_field.used_in includes translate_blog_post`);
@@ -78,6 +78,7 @@ function assert(cond, msg) {
     assert(ls.find(s => s.name === 'inject_snippet'), 'inject_snippet skill present');
     assert(ls.find(s => s.name === 'edit_view_arch'), 'edit_view_arch skill present');
     assert(ls.find(s => s.name === 'generate_diagram_png'), 'generate_diagram_png skill present');
+    assert(ls.find(s => s.name === 'migrate_binary_field'), 'migrate_binary_field skill present');
 
     // ── get_skills (batch) ───────────────────────────────────────────────────
     const gs = unwrap(await send('tools/call', { name: 'get_skills', arguments: { names: ['translate_html_field', 'translate_char_field'] } }));
@@ -102,7 +103,7 @@ function assert(cond, msg) {
 
     // ── list_workflows ───────────────────────────────────────────────────────
     const lw = unwrap(await send('tools/call', { name: 'list_workflows', arguments: {} }));
-    assert(lw.length === 4, `list_workflows returns 4 entries (got ${lw.length})`);
+    assert(lw.length === 5, `list_workflows returns 5 entries (got ${lw.length})`);
     const wfNames = lw.map(w => w.name);
     assert(wfNames.includes('translate_blog_post'), 'translate_blog_post workflow present');
     assert(wfNames.includes('translate_website_page'), 'translate_website_page workflow present');
@@ -122,12 +123,12 @@ function assert(cond, msg) {
 
     // ── GUIDANCE_HINT on mutating tools ──────────────────────────────────────
     const HINT_SUBSTR = 'find_skill / list_workflows';
-    const mutating = ['create', 'update', 'archive', 'execute_action', 'set_page_arch', 'set_page_visibility', 'fetch_and_upload', 'translation_update'];
+    const mutating = ['create', 'update', 'archive', 'execute_action', 'set_page_arch', 'set_page_visibility', 'fetch_and_upload', 'translation_update', 'upload_binary'];
     for (const t of mutating) {
       const def = (tools.result?.tools ?? []).find(x => x.name === t);
       assert(def?.description?.includes(HINT_SUBSTR), `${t} description includes guidance hint`);
     }
-    const nonMutating = ['get_models', 'get_fields', 'list_records', 'list_skills'];
+    const nonMutating = ['get_models', 'get_fields', 'list_records', 'list_skills', 'download_binary'];
     for (const t of nonMutating) {
       const def = (tools.result?.tools ?? []).find(x => x.name === t);
       assert(!def?.description?.includes(HINT_SUBSTR), `${t} description does NOT include hint (correct)`);

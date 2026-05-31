@@ -4,7 +4,8 @@
  * list_attachments, fetch_and_upload, translation_get, translation_update.
  * Also exports shared helpers used by other layers.
  */
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { dirname } from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
@@ -495,6 +496,66 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         }
         const src = is_image ? `/web/image/${attachId}` : `/web/content/${attachId}`;
         return ok({ id: attachId, src, name: result?.['name'] ?? filename });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  // ─── Binary field transfer tools ────────────────────────────────────────────
+
+  server.registerTool(
+    'download_binary',
+    {
+      description:
+        'Download a binary field value from an Odoo record to a local absolute path on the MCP server filesystem. ' +
+        'The binary is decoded and written to disk — no base64 passes through the AI context. ' +
+        'Use this as the source step in a cross-instance binary migration: ' +
+        'call download_binary on source MCP, then upload_binary on target MCP using the same path. ' +
+        'Returns {success, dest_path, size_bytes} or {error}.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.number().int(),
+        field: z.string(),
+        dest_path: z.string(),
+      },
+    },
+    async ({ model, record_id, field, dest_path }) => {
+      try {
+        const rows = await client.execute(model, 'read', [[record_id]], { fields: [field] }) as Array<Record<string, unknown>>;
+        if (!rows.length) return ok({ error: `Record ${model}:${record_id} not found.` });
+        const raw = rows[0][field];
+        if (!raw || raw === false) return ok({ error: `Field '${field}' on ${model}:${record_id} is empty or not a binary.` });
+        const buffer = Buffer.from(String(raw), 'base64');
+        await mkdir(dirname(dest_path), { recursive: true });
+        await writeFile(dest_path, buffer);
+        return ok({ success: true, dest_path, size_bytes: buffer.length });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  server.registerTool(
+    'upload_binary',
+    {
+      description:
+        GUIDANCE_HINT +
+        'Upload a local file into an Odoo record\'s binary field. ' +
+        'Reads the file at source_path (absolute path on the MCP server filesystem), ' +
+        'encodes it, and writes it to the specified field via the ORM — no base64 in AI context. ' +
+        'Use this as the target step in a cross-instance binary migration: ' +
+        'call download_binary on source MCP first, then upload_binary on target MCP using the same path. ' +
+        'Returns {success, model, record_id, field, size_bytes} or {error}.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.number().int(),
+        field: z.string(),
+        source_path: z.string(),
+      },
+    },
+    async ({ model, record_id, field, source_path }) => {
+      try {
+        const buffer = await readFile(source_path);
+        const data = buffer.toString('base64');
+        await client.execute(model, 'write', [[record_id], { [field]: data }]);
+        return ok({ success: true, model, record_id, field, size_bytes: buffer.length });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
