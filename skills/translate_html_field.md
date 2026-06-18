@@ -9,7 +9,7 @@ applies_to:
   field_types: [html_translate, xml_translate]
   models: ["*"]
   operations: [translate]
-tools_used: [get_fields, translation_get, translation_update]
+tools_used: [get_fields, translation_get, translation_update, translation_audit]
 preconditions:
   - Target language is installed in res.lang and active.
   - Field is translatable (translate=html_translate verified via get_fields or model source).
@@ -17,6 +17,10 @@ anti_patterns:
   - Passing the entire HTML blob as a single source key (silent no-op).
   - Translating source strings guessed from the rendered page (whitespace, entities, inline tags drift).
   - Looping translation_update once per term (works but wasteful — batch in one call).
+  - Writing the translation with update + context={'lang': <target>} on a translatable HTML field — this
+    overwrites the SOURCE with the translation, destroying the base-language body and making the source
+    terms the wrong language for every reader. Always use translation_update. Detect the damage with
+    translation_audit (suspect_source flag).
 ---
 
 # Skill: Translate an HTML field (`translate=html_translate`)
@@ -88,6 +92,8 @@ translation_update(
 - Use the **map** form for HTML fields. The string form is for char/text fields and will silently no-op here.
 - Send all non-empty terms in one call. No need to loop.
 - Empty `value` entries: omit them from the map (don't push empty strings — they overwrite existing translations with empty).
+- Translating several records (or `name` + `html_content` together)? Use the batch form to do it in one call:
+  `translation_update(model, updates=[{record_id, field_name, translations}, ...])`.
 
 > **Critical — key selection rule** (root cause of silent failures):
 > `update_field_translations` walks the **currently stored arch** for the target language and matches map keys against the text nodes it finds there.
@@ -98,6 +104,20 @@ translation_update(
 
 ### Step 6 — Verify
 
+Prefer `translation_audit` — it checks coverage and source integrity in one call, and accepts arrays so
+you can verify many records/fields at once:
+
+```
+translation_audit(model, record_id, field_name, target_langs=["<lang>"])
+```
+Read the result:
+- `passed: true` and `summary.total_missing == 0` → every term is translated.
+- `results[].langs.<lang>.missing` → exact source terms still untranslated (re-push those keys).
+- `results[].suspect_source` (non-empty) → the SOURCE terms are in the target script: the base-language
+  body was overwritten (almost always by `update` + `context:{lang}`). Re-push the base-language source
+  via plain `update` (no lang context), then re-apply translations with `translation_update`.
+
+Or, for a single field, the raw read still works:
 ```
 translation_get(model, record_id, field_name, langs=["<lang>"])
 ```

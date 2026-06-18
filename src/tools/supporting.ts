@@ -1,7 +1,7 @@
 /**
  * Layer 3 — Supporting tools: list_records, get_record (+ fields/context), search_records,
  * get_fields, get_defaults, get_filters, list_snippets, get_snippet,
- * list_attachments, fetch_and_upload, translation_get, translation_update.
+ * list_attachments, fetch_and_upload, translation_get, translation_update, translation_audit.
  * Also exports shared helpers used by other layers.
  */
 import { readFile, writeFile, mkdir } from 'fs/promises';
@@ -139,6 +139,39 @@ function stripQwebWrapper(arch: string): { html: string; hasDynamic: boolean } {
     return { html: inner, hasDynamic };
   }
   return { html: arch, hasDynamic };
+}
+
+// ─── Translation helpers ──────────────────────────────────────────────────────
+
+type TermRow = { lang: string; source: string; value: string };
+
+// Arabic / Arabic-supplement / presentation-form ranges. Used to detect a source
+// term that is actually a translation (the "translation stored as source" defect).
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const LATIN_RE = /[A-Za-z]/;
+
+function toArray<T>(v: T | T[]): T[] { return Array.isArray(v) ? v : [v]; }
+
+/** Group flat translation rows by source term, preserving first-seen order. */
+function groupTerms(rows: TermRow[]): { order: string[]; byTerm: Map<string, Map<string, string>> } {
+  const byTerm = new Map<string, Map<string, string>>();
+  const order: string[] = [];
+  for (const r of rows) {
+    if (!byTerm.has(r.source)) { byTerm.set(r.source, new Map()); order.push(r.source); }
+    byTerm.get(r.source)!.set(r.lang, r.value ?? '');
+  }
+  return { order, byTerm };
+}
+
+async function fetchTermRows(
+  client: OdooClient, model: string, recordId: number, fieldName: string, langs?: string[],
+): Promise<{ rows: TermRow[]; meta: Record<string, unknown> }> {
+  const kwargs: Record<string, unknown> = {};
+  if (langs?.length) kwargs['langs'] = langs;
+  const result = await client.execute(
+    model, 'get_field_translations', [[recordId], fieldName], kwargs,
+  ) as [TermRow[], Record<string, unknown>];
+  return { rows: result[0] ?? [], meta: result[1] ?? {} };
 }
 
 // ─── Register ────────────────────────────────────────────────────────────────
@@ -569,25 +602,42 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'Read all language translations for a translatable field on a record. ' +
         'Works on any field with translate=True (char fields: returns one entry per language) ' +
         'or callable translate (html / arch_db: returns one entry per translatable term per language). ' +
+        'record_id and field_name each accept a single value OR an array (batch read in one call). ' +
         'langs: optional list of language codes to filter (e.g. ["fr_FR", "ar_001"]); ' +
         'omit to return all installed languages. ' +
-        'Returns {translations: [{lang, source, value}], translation_type, translation_show_source} or {error}.',
+        'Single record_id AND single field_name → {translations: [{lang, source, value}], translation_type, translation_show_source}. ' +
+        'Any array argument → {results: [{record_id, field_name, translations, translation_type, translation_show_source} | {record_id, field_name, error}]}. ' +
+        'Returns the above or {error}.',
       inputSchema: {
         model: z.string(),
-        record_id: z.number().int(),
-        field_name: z.string(),
+        record_id: z.union([z.number().int(), z.array(z.number().int())]),
+        field_name: z.union([z.string(), z.array(z.string())]),
         langs: z.array(z.string()).optional(),
       },
     },
     async ({ model, record_id, field_name, langs }) => {
       try {
-        const kwargs: Record<string, unknown> = {};
-        if (langs?.length) kwargs['langs'] = langs;
-        const result = await client.execute(
-          model, 'get_field_translations', [[record_id], field_name], kwargs,
-        ) as [Array<{ lang: string; source: string; value: string }>, Record<string, unknown>];
-        const [translations, meta] = result;
-        return ok({ translations, ...meta });
+        const ids = toArray(record_id);
+        const fields = toArray(field_name);
+        const single = !Array.isArray(record_id) && !Array.isArray(field_name);
+        const results: Array<Record<string, unknown>> = [];
+        for (const id of ids) {
+          for (const f of fields) {
+            try {
+              const { rows, meta } = await fetchTermRows(client, model, id, f, langs);
+              results.push({ record_id: id, field_name: f, translations: rows, ...meta });
+            } catch (e) {
+              results.push({ record_id: id, field_name: f, error: String(e) });
+            }
+          }
+        }
+        if (single) {
+          const r = results[0];
+          if (r['error']) return ok({ error: r['error'] });
+          const { record_id: _i, field_name: _f, translations, ...meta } = r;
+          return ok({ translations, ...meta });
+        }
+        return ok({ results });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
@@ -597,24 +647,172 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     {
       description:
         GUIDANCE_HINT +
-        'Write translations for a translatable field on a record. ' +
+        'Write translations for translatable field(s). Two forms: ' +
+        '(1) Single/same-map — pass record_id (a number or an array of ids), field_name and translations; ' +
+        'the same translations map is applied to every id. ' +
+        '(2) Batch — pass updates: [{record_id, field_name, translations}, ...] to write different content ' +
+        'per record and per field in one call (e.g. name + html_content for many records). ' +
         'For char fields (translate=True): translations = {"fr_FR": "Bonjour", "ar_001": "مرحبا"}. ' +
         'For html / arch_db fields (callable translate): translations = {"fr_FR": {"English source term": "French translation"}}. ' +
         'The target language must be installed in Odoo (Settings → Languages). ' +
-        'Returns {success: true} or {error}.',
+        'Single id (number) form returns {success: true}; id-array and batch forms return ' +
+        '{results: [{record_id, field_name, success: true} | {record_id, field_name, error}]}. Returns the above or {error}.',
       inputSchema: {
         model: z.string(),
-        record_id: z.number().int(),
-        field_name: z.string(),
-        translations: z.record(z.unknown()),
+        record_id: z.union([z.number().int(), z.array(z.number().int())]).optional(),
+        field_name: z.string().optional(),
+        translations: z.record(z.unknown()).optional(),
+        updates: z.array(z.object({
+          record_id: z.number().int(),
+          field_name: z.string(),
+          translations: z.record(z.unknown()),
+        })).optional(),
       },
     },
-    async ({ model, record_id, field_name, translations }) => {
+    async ({ model, record_id, field_name, translations, updates }) => {
       try {
-        await client.execute(
-          model, 'update_field_translations', [[record_id], field_name, translations],
-        );
-        return ok({ success: true });
+        // Form (2): explicit batch of heterogeneous updates.
+        if (updates?.length) {
+          const results: Array<Record<string, unknown>> = [];
+          for (const u of updates) {
+            try {
+              await client.execute(
+                model, 'update_field_translations', [[u.record_id], u.field_name, u.translations],
+              );
+              results.push({ record_id: u.record_id, field_name: u.field_name, success: true });
+            } catch (e) {
+              results.push({ record_id: u.record_id, field_name: u.field_name, error: String(e) });
+            }
+          }
+          return ok({ results });
+        }
+        // Form (1): single record_id, field_name and translations (same map applied to all ids).
+        if (record_id === undefined || !field_name || !translations) {
+          return ok({ error: 'Provide either updates[] or (record_id, field_name, translations).' });
+        }
+        if (!Array.isArray(record_id)) {
+          await client.execute(
+            model, 'update_field_translations', [[record_id], field_name, translations],
+          );
+          return ok({ success: true });
+        }
+        const results: Array<Record<string, unknown>> = [];
+        for (const id of record_id) {
+          try {
+            await client.execute(
+              model, 'update_field_translations', [[id], field_name, translations],
+            );
+            results.push({ record_id: id, field_name, success: true });
+          } catch (e) {
+            results.push({ record_id: id, field_name, error: String(e) });
+          }
+        }
+        return ok({ results });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  server.registerTool(
+    'translation_audit',
+    {
+      description:
+        'Audit translation coverage and integrity for translatable field(s) across one or more records. ' +
+        'For each record×field it reports total source terms and, per target language, how many are ' +
+        'translated and which source terms are still missing. It also returns two integrity flags: ' +
+        'suspect_source (when base_lang is English, source terms written in Arabic script — the signature ' +
+        'of the "translation stored as source" defect that destroys the English body) and nonempty_base ' +
+        '(terms whose base-language value is non-empty). Use it to verify a bilingual push in one call and ' +
+        'to catch source corruption early. record_id and field_name each accept a single value or an array. ' +
+        'base_lang defaults to "en_US"; target_langs defaults to every non-base language present. ' +
+        'Long term lists are capped at max_list (default 50) with a *_truncated flag. ' +
+        'Returns {passed, summary, results: [...]} or {error}.',
+      inputSchema: {
+        model: z.string(),
+        record_id: z.union([z.number().int(), z.array(z.number().int())]),
+        field_name: z.union([z.string(), z.array(z.string())]),
+        base_lang: z.string().optional(),
+        target_langs: z.array(z.string()).optional(),
+        max_list: z.number().int().optional(),
+      },
+    },
+    async ({ model, record_id, field_name, base_lang, target_langs, max_list }) => {
+      try {
+        const ids = toArray(record_id);
+        const fields = toArray(field_name);
+        const base = base_lang ?? 'en_US';
+        const cap = max_list ?? 50;
+        const baseIsEnglish = base.toLowerCase().startsWith('en');
+        const langsFilter = target_langs?.length ? [base, ...target_langs] : undefined;
+        const results: Array<Record<string, unknown>> = [];
+        let totalMissing = 0, totalSuspect = 0, totalNonemptyBase = 0;
+        for (const id of ids) {
+          for (const f of fields) {
+            try {
+              const { rows, meta } = await fetchTermRows(client, model, id, f, langsFilter);
+              const { order, byTerm } = groupTerms(rows);
+              const presentLangs = new Set(rows.map(r => r.lang));
+              const targets = target_langs?.length
+                ? target_langs
+                : [...presentLangs].filter(l => l !== base);
+
+              const langReport: Record<string, unknown> = {};
+              for (const tl of targets) {
+                const missing: string[] = [];
+                let translated = 0;
+                for (const src of order) {
+                  const v = byTerm.get(src)?.get(tl) ?? '';
+                  if (v.trim()) translated++; else missing.push(src);
+                }
+                totalMissing += missing.length;
+                langReport[tl] = {
+                  translated,
+                  missing_count: missing.length,
+                  missing: missing.slice(0, cap),
+                  ...(missing.length > cap ? { missing_truncated: true } : {}),
+                };
+              }
+
+              const suspect: string[] = [];
+              const nonemptyBase: string[] = [];
+              for (const src of order) {
+                if (baseIsEnglish && ARABIC_RE.test(src) && !LATIN_RE.test(src)) suspect.push(src);
+                if ((byTerm.get(src)?.get(base) ?? '').trim()) nonemptyBase.push(src);
+              }
+              totalSuspect += suspect.length;
+              totalNonemptyBase += nonemptyBase.length;
+
+              results.push({
+                record_id: id,
+                field_name: f,
+                translation_type: meta['translation_type'],
+                translation_show_source: meta['translation_show_source'],
+                total_terms: order.length,
+                base_lang: base,
+                langs: langReport,
+                suspect_source: suspect.slice(0, cap),
+                ...(suspect.length > cap ? { suspect_source_truncated: true } : {}),
+                nonempty_base: nonemptyBase.slice(0, cap),
+                ...(nonemptyBase.length > cap ? { nonempty_base_truncated: true } : {}),
+              });
+            } catch (e) {
+              results.push({ record_id: id, field_name: f, error: String(e) });
+            }
+          }
+        }
+        const passed = totalMissing === 0 && totalSuspect === 0
+          && results.every(r => !r['error']);
+        return ok({
+          passed,
+          summary: {
+            records: ids.length,
+            fields: fields.length,
+            checks: results.length,
+            total_missing: totalMissing,
+            total_suspect_source: totalSuspect,
+            total_nonempty_base: totalNonemptyBase,
+          },
+          results,
+        });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
