@@ -52,7 +52,14 @@ function loadDir<T>(dir: string): Doc<T>[] {
   catch { return []; }
   return files.map(f => {
     const raw = readFileSync(join(dir, f), 'utf8');
-    const { front, body } = splitFrontmatter(raw);
+    let front: unknown, body: string;
+    try {
+      ({ front, body } = splitFrontmatter(raw));
+    } catch (e) {
+      // One malformed file must degrade to itself, never blank the whole catalog.
+      console.error(`[guidance] malformed frontmatter in ${f}: ${(e as Error).message}`);
+      front = {}; body = raw;
+    }
     const fm = (front ?? {}) as T & { name?: string };
     if (!fm.name) fm.name = f.replace(/\.md$/, '');
     return { front: fm as T, body };

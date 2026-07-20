@@ -17,7 +17,8 @@ anti_patterns:
   - Passing the entire HTML blob as a single source key (silent no-op).
   - Translating source strings guessed from the rendered page (whitespace, entities, inline tags drift).
   - Looping translation_update once per term (works but wasteful — batch in one call).
-  - Writing the translation with update + context={'lang': <target>} on a translatable HTML field — this
+  - >-
+    Writing the translation with update + context={'lang': <target>} on a translatable HTML field — this
     overwrites the SOURCE with the translation, destroying the base-language body and making the source
     terms the wrong language for every reader. Always use translation_update. Detect the damage with
     translation_audit (suspect_source flag).
