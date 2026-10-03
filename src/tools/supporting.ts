@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
+import { evalAction } from '../odoo/expr.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -20,52 +21,28 @@ function parseArch(arch: string): FXPNode[] {
   return xmlParser.parse(arch) as FXPNode[];
 }
 
-// ─── Python-literal helpers ──────────────────────────────────────────────────
-
-export function safeEvalList(raw: unknown): unknown[] {
-  if (Array.isArray(raw)) return raw;
-  if (!raw || raw === false) return [];
-  try {
-    const js = String(raw)
-      .replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null')
-      .replace(/\(/g, '[').replace(/\)/g, ']');
-    const val = JSON.parse(js);
-    return Array.isArray(val) ? val : [];
-  } catch { return []; }
-}
-
-export function safeEvalDict(raw: unknown): Record<string, unknown> {
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, unknown>;
-  if (!raw || raw === false) return {};
-  try {
-    const js = String(raw)
-      .replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null')
-      .replace(/'/g, '"');
-    const val = JSON.parse(js);
-    return val && typeof val === 'object' && !Array.isArray(val) ? val as Record<string, unknown> : {};
-  } catch { return {}; }
-}
-
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
+/**
+ * A window action's domain and context as the web client evaluates them on opening it, with the
+ * caller's context as additional context. The caller's context still takes precedence for reads.
+ */
 export async function actionDomainContext(
-  client: OdooClient, cache: Cache, actionId: number | undefined | null,
+  client: OdooClient, cache: Cache, actionId: number | undefined | null, ctx: Record<string, unknown> = {},
 ): Promise<[unknown[], Record<string, unknown>]> {
   if (!actionId) return [[], {}];
   const key = `action_info:${actionId}`;
-  const cached = cache.get(key) as { domain: unknown[]; context: Record<string, unknown> } | undefined;
-  if (cached) return [cached.domain, cached.context];
-  try {
+  let action = cache.get(key) as { domain: unknown; context: unknown } | undefined;
+  if (!action) {
     const rows = await client.execute('ir.actions.act_window', 'read', [[actionId]], {
       fields: ['domain', 'context'],
     }) as Array<{ domain: unknown; context: unknown }>;
-    if (!rows.length) return [[], {}];
-    const act = rows[0];
-    const domain = safeEvalList(act.domain);
-    const context = safeEvalDict(act.context);
-    cache.set(key, { domain, context });
-    return [domain, context];
-  } catch { return [[], {}]; }
+    if (!rows.length) throw new Error(`Window action ${actionId} not found.`);
+    action = rows[0];
+    cache.set(key, action);
+  }
+  const { domain, context } = await evalAction(client, action, ctx);
+  return [domain, context];
 }
 
 export async function resolveContext(
@@ -73,7 +50,7 @@ export async function resolveContext(
   actionId: number | undefined | null,
   ctx: Record<string, unknown> | undefined | null,
 ): Promise<Record<string, unknown>> {
-  const [, actionCtx] = await actionDomainContext(client, cache, actionId);
+  const [, actionCtx] = await actionDomainContext(client, cache, actionId, ctx ?? {});
   return { ...actionCtx, ...(ctx ?? {}) };
 }
 
@@ -177,7 +154,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, action_id, limit, offset, order, context }) => {
       try {
-        const [domain, actionCtx] = await actionDomainContext(client, cache, action_id);
+        const [domain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
         const mergedCtx = { ...actionCtx, ...(context ?? {}) };
         let fields = await viewFieldNames(client, cache, model, 'list');
         if (!fields.length) fields = ['display_name'];
@@ -243,7 +220,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, query, domain, action_id, limit, context }) => {
       try {
-        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id);
+        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
         const mergedCtx = { ...actionCtx, ...(context ?? {}) };
         const combined = [...actionDomain, ...(domain ?? [])];
         const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};

@@ -95,7 +95,7 @@ until handled and the row reads `ok` across the supported range.
 | D12 | 20.0 | `website.page.url` translatable | accepted |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
-| X1 | all | Divergences fail silently | open — `views`, binary, access callers done |
+| X1 | all | Divergences fail silently | fixed |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | open |
 
 **D1 — 15.0: no `get_views`.** 15.0 offers `load_views(views, options)` (`15.0/odoo/models.py:1626`),
@@ -179,7 +179,9 @@ replacing.
 **X1 — divergences fail silently.** Several call sites catch the error and return a plausible
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,
 `getFormFields()` falls back to all fields, `download_binary` and `fetch_and_upload` report success.
-A divergence must surface as an error, never as an empty or partial result.
+A divergence must surface as an error, never as an empty or partial result. The same held for
+action domains: regex conversion dropped every one, returning the whole model — replaced by the web
+client's own evaluator (`src/odoo/expr.ts`).
 
 **X2 — 20.0: guidance names `ir.attachment.datas`.** Skills and workflows instruct agents to read or
 write `datas` directly through generic tools (`skills/upload_attachment.md`,

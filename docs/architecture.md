@@ -10,11 +10,17 @@ run in CI (`.github/workflows/check.yml`).
 | Layer | Location | Owns | Never |
 |---|---|---|---|
 | Tools | `src/tools/` | MCP interface: parameters, descriptions, output shape | compares versions, handles a series-specific Odoo shape |
-| Operations | `src/odoo/` | Odoo operations whose call or result differs across series — one function each, one output shape | MCP concerns |
-| Client | `src/odooClient.ts` | transport, session, target version | model-specific logic |
+| Operations | `src/odoo/` | Odoo operations whose call or result differs across series — one function each, one output shape; web-client semantics (expression evaluation) through vendored code | MCP concerns |
+| Vendor | `src/vendor/` | upstream code used unmodified — the web client's `py_js` and `context.js` — with `UPSTREAM.json` | local changes; imports from anywhere but `src/odoo/` |
+| Client | `src/odooClient.ts` | transport, session (uid, target version, the web client's user context) | model-specific logic |
 
 Tools call an operation for anything version-dependent, and `client.execute` directly for calls
-identical across the supported range. A call moves into an operation when it starts to diverge;
+identical across the supported range.
+
+The surface stands in for the browser: what the web client computes — action domains and
+contexts, view conditions — is computed with the web client's own code, vendored, never
+re-implemented. The process takes the user's timezone, as the browser does.
+`scripts/upstream-watch.mjs` (weekly) opens an issue when the vendored upstream changes. A call moves into an operation when it starts to diverge;
 `docs/compatibility.md` lists every call per series and is where divergence is detected.
 
 ---
@@ -49,7 +55,8 @@ export const views = since({
 
 ## Rules
 
-1. Only `src/odoo/` resolves versions. Tools and the client's transport never compare them.
+1. Only `src/odoo/` resolves versions and imports `src/vendor/`. Tools and the client's transport
+   never compare versions.
 2. One divergence, one home: each is handled once, in its operation's table.
 3. An operation returns the same shape on every series.
 4. Fail loud. A failed or unsupported call is an error — never an empty, partial or default result

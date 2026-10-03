@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Version routing lives in src/odoo/ only (docs/architecture.md): no other source file may
-// read the target version or define a since() table. The client owns the version itself.
+// Version routing and vendored web-client code live behind src/odoo/ only (docs/architecture.md):
+// no other source file may read the target version, define a since() table or import src/vendor/.
+// The client owns the version itself.
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const ALLOWED = [/^src\/odoo\//, /^src\/odooClient\.ts$/];
-const VERSIONED = /\.version\(\)|\bsince\(|\bunavailable\(|\.major\b|\.minor\b|\.saas\b|\.edition\b/;
+const VERSIONED = /\.version\(\)|\bsince\(|\bunavailable\(|\.major\b|\.minor\b|\.saas\b|\.edition\b|\/vendor\//;
 
 const files = readdirSync('src', { recursive: true })
   .map(f => join('src', String(f)).replaceAll('\\', '/'))
@@ -18,6 +19,6 @@ const hits = files.flatMap(f =>
 
 for (const { f, n, line } of hits) console.error(`${f}:${n}: ${line.trim()}`);
 if (hits.length) {
-  console.error('\nVersion-dependent code outside src/odoo/ — move it into an operation.');
+  console.error('\nVersion-dependent or vendored code outside src/odoo/ — move it into an operation.');
   process.exit(1);
 }

@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { postMessage } from '../odoo/mail.js';
-import { resolveContext, viewFieldNames, safeEvalDict } from './supporting.js';
+import { resolveContext, viewFieldNames } from './supporting.js';
+import { evalAction } from '../odoo/expr.js';
 import { collectModelActions } from './discovery.js';
 import { ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -140,11 +141,9 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
             const actionType = meta[0].type ?? 'ir.actions.act_window';
             const full = await client.execute(actionType, 'read', [[actionId]]) as Array<Record<string, unknown>>;
             if (!full.length) return ok({ error: `Could not load action ${actionId}.` });
-            const actionDef = { ...full[0] };
-            const ctx = safeEvalDict(actionDef['context']);
-            Object.assign(ctx, activeCtx(record_id, model));
-            actionDef['context'] = ctx;
-            return ok(actionDef);
+            // As the web client opens it from the record: active_* as additional context.
+            const { domain, context } = await evalAction(client, full[0], activeCtx(record_id, model));
+            return ok({ ...full[0], domain, context });
           }
 
           // type=object → call_button
