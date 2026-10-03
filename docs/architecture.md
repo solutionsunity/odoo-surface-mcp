@@ -1,7 +1,7 @@
 # Architecture
 
-**Status.** Adopted 2026-10-03. `src/odoo/` and its CI guard land with the first version-routed
-operation; until then the version-dependent helpers still sit in `src/odooClient.ts`.
+**Status.** Adopted 2026-10-03. Rule 1 is enforced by `npm run check:arch` (`scripts/check-arch.mjs`),
+run in CI (`.github/workflows/check.yml`).
 
 ---
 

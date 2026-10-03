@@ -10,7 +10,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "node --loader ts-node/esm src/index.ts"
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "check:arch": "node scripts/check-arch.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
