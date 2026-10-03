@@ -8,8 +8,8 @@ SaaS series are covered where they share the Community code path; EE-only module
 scope. Source citations are `<series>/<path>:<line>` in that series' tree.
 
 **Live.** `scripts/smoke-compat.mjs <env-file>` drives the built server against every target and
-checks each tool's result shape. Live targets: CE 15.0, 17.0, 18.0. 16.0, 19.0, 20.0 are
-source-verified only.
+checks each tool's result shape. Live targets: CE 15.0, 17.0, 18.0, 20.0; write paths verified
+live with restore. 16.0 and 19.0 are source-verified only.
 
 **Legend.** `ok` — works as the code uses it. `D<n>` — divergence, described below.
 

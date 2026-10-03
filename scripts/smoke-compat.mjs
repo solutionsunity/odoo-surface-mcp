@@ -41,6 +41,11 @@ const CASES = [
   ['get_model_interface', { model: 'res.partner' }, r => (nonEmpty(r.fields) && !('fields' in r.fields)) || 'fields empty or nested'],
   ['get_available_actions', { model: 'res.partner', record_id: 1 }, r => Array.isArray(r.visible_buttons) || 'no visible_buttons'],
   ['search_records', { model: 'res.partner', query: 'a', limit: 3 }, r => (nonEmpty(r) && noError(r)) || 'empty'],
+  ['get_filters', { model: 'res.partner' }, r => (Array.isArray(r) && noError(r)) || 'error'],
+  ['list_attachments', {}, r => noError(r) || 'error'],
+  ['list_pages', {}, r => (nonEmpty(r) && noError(r)) || 'empty'],
+  ['list_snippets', {}, r => (nonEmpty(r) && noError(r)) || 'empty'],
+  ['get_snippet', { key: 'website.s_text_image' }, r => r.html?.includes('<') || 'no html'],
   ['download_binary', { model: 'res.company', record_id: 1, field: 'logo', dest_path: '/tmp/smoke-compat-logo.png' },
     r => r.size_bytes > 0 || 'no bytes'],
 ];
