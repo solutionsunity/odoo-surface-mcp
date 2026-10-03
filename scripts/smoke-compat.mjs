@@ -47,7 +47,7 @@ const CASES = [
   ['list_attachments', {}, r => noError(r) || 'error'],
   ['list_pages', {}, r => (nonEmpty(r) && noError(r)) || 'empty'],
   ['list_snippets', {}, r => (nonEmpty(r) && noError(r)) || 'empty'],
-  ['get_snippet', { key: 'website.s_text_image' }, r => r.html?.includes('<') || 'no html'],
+  ['get_snippet', { key: 'website.s_text_image' }, r => /^<section[^>]*data-snippet="s_text_image"[^>]*data-name=/.test(r.html ?? '') || 'not editor-shaped'],
   ['download_binary', { model: 'res.company', record_id: 1, field: 'logo', dest_path: '/tmp/smoke-compat-logo.png' },
     r => r.size_bytes > 0 || 'no bytes'],
 ];

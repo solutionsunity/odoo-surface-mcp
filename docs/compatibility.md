@@ -61,7 +61,7 @@ the path and signature are unchanged.
 | `ir.actions.server.search_read`, `.run` | `get_model_actions`, `inspect_action`, `execute_action` | ok | ok | ok | ok | ok | ok |
 | `ir.actions.report.search_read` | `get_model_actions`, `inspect_action` | ok | ok | ok | ok | ok | ok |
 | `ir.filters.search_read` | `get_filters` | ok | ok | ok | ok | ok | ok |
-| `ir.ui.view.search_read` | `list_snippets`, `get_snippet` | ok | ok | ok | ok | ok | ok |
+| `ir.ui.view.search_read` | `list_snippets`, `get_snippet` | D17 | ok | ok | ok | ok | ok |
 | `ir.ui.view.read`, `.write` (`arch_db`) | `get_page_arch`, `set_page_arch` | ok | ok | ok | ok | ok | ok |
 | `ir.attachment.search_read` | `list_attachments` | ok | ok | ok | ok | ok | ok |
 | `writeAttachmentContent` (`src/odoo/binary.ts`) | `fetch_and_upload` (replace) | ok | ok | ok | ok | ok | ok |
@@ -99,6 +99,7 @@ until handled and the row reads `ok` across the supported range.
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
 | D15 | 16.0, 17.0 | html/xml term updates keyed by the language's current term | `updateFieldTranslations` |
 | D16 | 20.0 | `new_page` makes the URL unique only within the context's website | call form |
+| D17 | 15.0 | `ir.ui.view.arch` starts with an XML declaration | `get_snippet` |
 | X1 | all | Divergences fail silently | fixed |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | fixed |
 
@@ -203,6 +204,13 @@ that website (`20.0/addons/website/models/website.py:1473`); up to 18.0 it falls
 website. A browser request always carries the website; over RPC without it, 20.0 created a second page
 with a taken URL. `create_page` always passes the website in the context — which also makes the new
 view website-specific on 15.0, as in the browser.
+
+**D17 — 15.0: a view's `arch` starts with `<?xml version="1.0"?>`** (observed live on 15.0; 16.0+ return
+the bare template). `get_snippet` stripped the `<t t-name>` wrapper only when the arch began with it, so
+on 15.0 it returned the whole template and a composed page arch was rejected ("XML declaration allowed
+only at the start of the document"). `get_snippet` now drops the declaration, and returns the body as
+the editor drops it — first element marked `data-snippet` / `data-name`
+(`20.0/addons/html_builder/models/ir_qweb.py:98`).
 
 **X1 — divergences fail silently.** Several call sites catch the error and return a plausible
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,

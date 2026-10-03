@@ -79,9 +79,14 @@ const QWEB_DYNAMIC = new Set([
   't-foreach', 't-if', 't-else', 't-elif', 't-call', 't-set', 't-out', 't-esc',
 ]);
 
-function stripQwebWrapper(arch: string): { html: string; hasDynamic: boolean } {
-  let nodes: FXPNode[];
-  try { nodes = parseArch(arch); } catch { return { html: arch, hasDynamic: false }; }
+/**
+ * A snippet template's body as the editor drops it: without the XML declaration and the
+ * <t t-name> wrapper, its first element marked data-snippet / data-name
+ * (20.0/addons/html_builder/models/ir_qweb.py:98; 15.0–18.0 set data-snippet on render).
+ */
+function snippetBody(arch: string, key: string, name: string): { html: string; hasDynamic: boolean } {
+  arch = arch.replace(/^\s*<\?xml[^>]*\?>\s*/, '');
+  const nodes = parseArch(arch);
 
   let hasDynamic = false;
   for (const node of iterNodes(nodes)) {
@@ -89,14 +94,15 @@ function stripQwebWrapper(arch: string): { html: string; hasDynamic: boolean } {
     if (attrs && Object.keys(attrs).some(k => QWEB_DYNAMIC.has(k))) { hasDynamic = true; break; }
   }
 
-  // If root is <t t-name="...">, return its serialised children
+  // fast-xml-parser does not round-trip; strip the wrapper tags textually.
   const root = nodes[0];
-  if (root && 't' in root) {
-    // Re-serialise: fast-xml-parser can't round-trip easily; return arch minus wrapper tags
-    const inner = arch.replace(/^<t[^>]*>/, '').replace(/<\/t>\s*$/, '').trim();
-    return { html: inner, hasDynamic };
-  }
-  return { html: arch, hasDynamic };
+  let html = root && 't' in root ? arch.replace(/^<t[^>]*>/, '').replace(/<\/t>\s*$/, '').trim() : arch.trim();
+  html = html.replace(/^<(?!t[\s>])([a-zA-Z][\w-]*)([^>]*?)(\/?)>/, (tag, el, attrs, close) => {
+    if (!/\sdata-snippet=/.test(attrs)) attrs += ` data-snippet="${key.split('.').pop()}"`;
+    if (!/\sdata-name=/.test(attrs)) attrs += ` data-name="${name.replace(/"/g, '&quot;')}"`;
+    return `<${el}${attrs}${close}>`;
+  });
+  return { html, hasDynamic };
 }
 
 // ─── Translation helpers ──────────────────────────────────────────────────────
@@ -389,7 +395,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         ) as Array<{ key: string; name: string; arch: string }>;
         if (!rows.length) return ok({ error: `Snippet '${key}' not found.` });
         const row = rows[0];
-        const { html, hasDynamic } = stripQwebWrapper(row.arch ?? '');
+        const { html, hasDynamic } = snippetBody(row.arch ?? '', row.key, row.name ?? '');
         const result: Record<string, unknown> = { key: row.key, name: row.name ?? '', html };
         if (hasDynamic) {
           result['warning'] = 'This snippet contains QWeb directives (t-if / t-foreach). ' +
