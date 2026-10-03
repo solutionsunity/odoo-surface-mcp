@@ -65,7 +65,15 @@ non-ASCII languages (Arabic, CJK, etc.) will produce a bare numeric ID as the UR
 update('blog.post', record_id, {'seo_name': '<derived-slug>'})
 ```
 Verify: re-read `website_url` and confirm it ends with `<seo_name>-<id>`.
-Only proceed to Step 2 once `seo_name` is confirmed set.
+
+The URL also carries the **blog's** slug (`/blog/<blog-slug>-<blog_id>/…`), derived from the blog's
+name — translated, so a non-ASCII language turns it into the bare blog id. Anchor it the same way:
+```
+get_record('blog.blog', <blog_id>, fields=['name', 'seo_name'])
+# if seo_name is false:
+update('blog.blog', <blog_id>, {'seo_name': '<blog-slug from the source-language website_url>'})
+```
+Only proceed to Step 2 once both `seo_name`s are confirmed set.
 
 ### Step 2 — Translate `name` and `subtitle`
 
@@ -116,7 +124,7 @@ get_record('blog.post', id, fields=['teaser', 'teaser_manual', 'website_url', 'w
 - `name`, `subtitle`: each returns one entry; `value` must be non-empty and match what you pushed.
 - `content`: every entry must have non-empty `value`. Empty entries indicate source-key mismatch — re-extract and retry only the affected terms.
 - `teaser` in target-lang context: must render in the target language. If still source-language, `teaser_manual` is set — revisit Step 3.
-- `website_url`: must be identical to the source-language URL (same `seo_name`-derived slug). If it shows a bare ID, the URL guard in Step 1 was missed — run it now.
+- `website_url`: must be identical to the source-language URL (post and blog `seo_name`-derived slugs). A bare ID in either segment means the Step 1 guard was missed for that record — run it now.
 
 ### Step 7 — Visual check (optional but recommended)
 
@@ -137,5 +145,5 @@ Visit `/<lang_short>/blog/<blog_slug>/<post_slug>` (e.g. `/ar/blog/ai-4/why-your
 | Blog listing excerpt stays in source language | `teaser_manual` is set (not translatable) so all languages share its value | Confirm with user, then `update('blog.post', id, {'teaser_manual': false})` to make `teaser` auto-derive per-language from translated `content` |
 | 404 on `/<lang>/blog/...` URL | Language not published on website, or website language list excludes target | Add the language to `website.language_ids` (publish it on the website) |
 | RTL not applied | `res.lang.direction` not set to `rtl` for the language | Update `res.lang` record: `update('res.lang', id, {direction: 'rtl'})` |
-| Non-ASCII URL is a bare numeric ID (`/blog/ai-4/7`) | `seo_name` not set; `slug()` converts non-ASCII title to empty string and falls back to `str(id)` | Run Step 1 URL slug guard: derive slug from source-lang `website_url`, set via `update('blog.post', id, {'seo_name': '<slug>'})` |
+| Non-ASCII URL is a bare numeric ID (`/blog/ai-4/7` or `/blog/4/…`) | `seo_name` not set on the post (or the blog); `slug()` converts a non-ASCII name to an empty string and falls back to `str(id)` | Run the Step 1 guard for the post and the blog: derive the slug from the source-language `website_url`, set via `update('blog.post' / 'blog.blog', id, {'seo_name': '<slug>'})` |
 | URL differs between languages | `seo_name` not set at creation; each language slugifies its own translated title | Same fix as above — `seo_name` is language-agnostic and unifies the URL across all locales |

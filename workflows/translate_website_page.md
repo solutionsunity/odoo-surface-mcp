@@ -19,12 +19,14 @@ preconditions:
 
 | Model | Field | `translate=` | Skill |
 |---|---|---|---|
-| `website.page` | `name` | `True` | `translate_char_field` |
+| `website.page` | `name` | `True` from Odoo 20; before, the view's name — not translatable | `translate_char_field` |
 | `website.page` | `website_meta_title` | `True` | `translate_char_field` |
 | `website.page` | `website_meta_description` | `True` | `translate_char_field` |
 | `website.page` | `website_meta_keywords` | `True` | `translate_char_field` |
-| `ir.ui.view` | `name` | `True` | `translate_char_field` |
 | `ir.ui.view` | `arch_db` | `xml_translate` | `translate_html_field` |
+
+`ir.ui.view.name` is an internal label and not translatable. `translation_update` on a field that is
+not translatable returns an error.
 
 SEO meta fields (`website_meta_*`) may be empty — skip `translation_update` for any field whose source is empty or `false`.
 
@@ -41,22 +43,14 @@ Capture `view_id[0]` (integer). All `ir.ui.view` calls use this id.
 
 Apply skill `translate_char_field` for each non-empty field on `website.page`:
 
-1. `translation_update('website.page', page_id, 'name', translations={'<lang>': '<translated>'})`
+1. Odoo 20+: `translation_update('website.page', page_id, 'name', translations={'<lang>': '<translated>'})`
 2. If `website_meta_title` is set: `translation_update('website.page', page_id, 'website_meta_title', ...)`
 3. If `website_meta_description` is set: same pattern.
 4. If `website_meta_keywords` is set: same pattern.
 
 Use `translation_get` first only if you need to confirm existing translations before overwriting.
 
-### Step 3 — Translate view name
-
-Apply skill `translate_char_field` on `ir.ui.view`:
-```
-translation_update('ir.ui.view', view_id, 'name', translations={'<lang>': '<translated view name>'})
-```
-View name is typically the internal template identifier — translate to a meaningful equivalent or keep as-is if it is a technical key.
-
-### Step 4 — Translate arch_db
+### Step 3 — Translate arch_db
 
 Apply skill `translate_html_field` (covers `xml_translate`):
 1. `translation_get('ir.ui.view', view_id, 'arch_db', langs=['<lang>'])` → returns N text-node terms.
@@ -64,15 +58,15 @@ Apply skill `translate_html_field` (covers `xml_translate`):
 3. Fill every `value`. Preserve QWeb directives (`t-if`, `t-esc`, `t-out`) — they appear as context but must not be translated. Translate only human-visible text nodes.
 4. `translation_update('ir.ui.view', view_id, 'arch_db', translations={'<lang>': {source_1: new_value_1, ...}})` — single call, all terms, keyed by `source` as returned.
 
-### Step 5 — Verify all fields
+### Step 4 — Verify all fields
 
 ```
-translation_get('website.page', page_id, 'name', langs=['<lang>'])
+translation_get('website.page', page_id, 'website_meta_title', langs=['<lang>'])
 translation_get('ir.ui.view', view_id, 'arch_db', langs=['<lang>'])
 ```
 Every pushed term must have a non-empty `value`. Empty entries indicate source-key mismatch — re-extract and retry.
 
-### Step 6 — Visual check
+### Step 5 — Visual check
 
 Visit `/<lang_code>/<page_url>` (e.g. `/ar/about-us`) to confirm the translated page renders. RTL languages apply automatically if `res.lang.direction = 'rtl'`.
 

@@ -19,7 +19,9 @@ Source-language only. Translation is a separate lifecycle step — see `translat
 ```
 list_records('blog.blog', fields=['name'])
 ```
-Capture the target `blog.blog` id. If no blog exists, create one: `create('blog.blog', {name: 'My Blog'})`.
+Capture the target `blog.blog` id. If no blog exists, create one with its slug anchored:
+`create('blog.blog', {name: 'My Blog', seo_name: 'my-blog'})` — the blog's slug is part of every post URL
+and, like the post's, falls back to a bare id in non-ASCII languages without `seo_name`.
 
 ## Step 2 — Create the post skeleton
 

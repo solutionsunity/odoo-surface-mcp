@@ -84,29 +84,36 @@ fetch_and_upload(source="/path/updated.js",
 ## 3 — Page Arch Pattern
 
 ```xml
-<t t-name="my.page" t-call="website.layout">
+<t t-name="{key from the arch get_page_arch returned}">
   <t t-set="head">
     <link rel="stylesheet" type="text/css" href="/web/content/{css_id}"/>
     <script type="text/javascript">
-      /* Inline theme-flash only — kept tiny, CSP-safe */
+      /* Inline theme-flash only — kept tiny */
       (function(){try{var s=localStorage.getItem('theme');
         document.documentElement.setAttribute('data-theme',s||'light');
       }catch(e){}}());
     </script>
     <script type="text/javascript" src="/web/content/{js_id}"/>
   </t>
-  <div id="app-root" data-manifest-id="{manifest_attachment_id}">
-    <!-- static shell; JS renders into this -->
-  </div>
+  <t t-call="website.layout" head="head">
+    <div id="app-root" data-manifest-id="{manifest_attachment_id}">
+      <!-- static shell; JS renders into this -->
+    </div>
+  </t>
 </t>
 ```
 
-- Use `get_page_arch` → edit in memory → `set_page_arch` (one write).
+- Create the page with `create_page`, then `get_page_arch` → edit in memory → `set_page_arch` (one write).
+- Set `head` **before** the `t-call` and pass it (`head="head"`): Odoo 20 no longer lets a `t-set` inside
+  the `t-call` body reach the layout. This form works on Odoo 15–20.
 - `website.page` is metadata only; content lives on `ir.ui.view.arch_db`.
 
 ---
 
 ## 4 — Known Gotchas (from UAC Atlas)
+
+Browser-side field notes from production. 4.2's cause and 4.3 are verified against Odoo 15–20; the
+others are observations.
 
 ### 4.1 DOM Stripping — hidden elements vanish
 **Symptom:** `getElementById('field-inside-hidden-div')` → null at script load.
@@ -126,9 +133,10 @@ or DOMContentLoaded. Re-query them at the moment of first use.
 
 ### 4.2 Inline onclick / functions blocked by CSP
 **Symptom:** `ReferenceError: myFunction is not defined` on button click.
-**Cause:** Odoo's CSP nonce policy blocks inline `<script>` blocks in page body.
-Inline `onclick="myFunction()"` attributes fire but the function was never
-registered because the inline script was suppressed.
+**Cause:** not an Odoo policy — Odoo sends no Content-Security-Policy on website pages (verified
+15.0–20.0). When inline scripts are suppressed, the policy comes from elsewhere (reverse proxy, CDN) or
+the content went through the editor's sanitizer. Inline `onclick="myFunction()"` then fires against a
+function that was never registered.
 
 **Fix:** Move all functions to a proper JS attachment. Bind events via
 `addEventListener` in that attachment — never use inline `onclick` attributes.
@@ -138,7 +146,7 @@ registered because the inline script was suppressed.
 ### 4.3 CSP on /web/content — nested iframes can't run scripts
 **Symptom:** Animation/script inside an `<iframe src="/web/content/{id}">` is
 silently blocked. DevTools shows `default-src 'none'` on the iframe document.
-**Cause:** Odoo sets a strict CSP on attachment responses.
+**Cause:** Odoo serves HTML attachments with `Content-Security-Policy: default-src 'none'` (verified 15.0–20.0).
 
 **Fix — Blob URL pattern (for content you own and trust):**
 ```js
@@ -170,14 +178,16 @@ no sandbox at all for trusted content.
 ## 5 — Access Restriction
 
 ```python
-# Find group IDs
+# Find the group (by its name, e.g. "Restricted Editor", or any group you created)
 list_records(model="res.groups",
-             domain=[["full_name", "ilike", "Website Publisher"]], fields=["full_name"])
+             domain=[["full_name", "ilike", "<group name>"]], fields=["full_name"])
 
-# Restrict page to a group — the field is groups_id up to Odoo 18, group_ids from Odoo 19
-update(model="ir.ui.view", record_id=<view_id>,
-       values={"groups_id": [[4, <group_id>]]})
+# Restrict the page: visibility AND the group — groups alone restrict nothing.
+# The field is groups_id up to Odoo 18, group_ids from Odoo 19.
+update(model="website.page", record_id=<page_id>,
+       values={"visibility": "restricted_group", "groups_id": [[4, <group_id>]]})
 ```
+Other `visibility` values: `""` (all), `"connected"` (signed-in users), `"password"`.
 
 ---
 
