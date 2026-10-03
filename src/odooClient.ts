@@ -22,8 +22,41 @@ interface RpcResponse {
   error?: { message?: string; data?: { message?: string } };
 }
 
+/** Target server version, normalised so SaaS series compare in line: 17.0 < saas~17.4 < 18.0. */
+export interface OdooVersion {
+  major: number;
+  minor: number;
+  saas: boolean;
+  edition: 'ce' | 'ee';
+}
+
+/**
+ * Parse `server_version_info` — odoo/release.py `version_info`, serialised as
+ * [major, minor, micro, level, serial, edition]: major is an int on stable series
+ * ([17, 0, 0, 'final', 0, '']) and 'saas~N' on SaaS ones (['saas~19', 3, 0, 'final', 0, 'e']).
+ * The last element is 'e' on Enterprise, '' on Community.
+ */
+function parseVersion(info: unknown): OdooVersion {
+  if (!Array.isArray(info) || info.length < 6) {
+    throw new Error(`Unrecognised server_version_info: ${JSON.stringify(info)}`);
+  }
+  const [rawMajor, minor, , , , edition] = info as [number | string, number, unknown, unknown, unknown, string];
+  const saas = typeof rawMajor === 'string';
+  const major = saas ? Number(rawMajor.replace(/^saas~/, '')) : rawMajor;
+  if (!Number.isInteger(major) || !Number.isInteger(minor)) {
+    throw new Error(`Unrecognised server_version_info: ${JSON.stringify(info)}`);
+  }
+  return { major, minor, saas, edition: edition === 'e' ? 'ee' : 'ce' };
+}
+
+/** Facts read at authentication; they live and die with the session. */
+interface Session {
+  uid: number;
+  version: OdooVersion;
+}
+
 export class OdooClient {
-  private _uid: number | null = null;
+  private _session: Session | null = null;
   private _idCounter = 1;
   private _cookies = new Map<string, string>();
   private _groupXmlids: Set<string> | null = null;
@@ -116,15 +149,23 @@ export class OdooClient {
   // Auth
   // -------------------------------------------------------------------------
 
-  async getUid(): Promise<number> {
-    if (this._uid !== null) return this._uid;
+  private async session(): Promise<Session> {
+    if (this._session) return this._session;
     const result = await this.rpc('/web/session/authenticate', {
       db: this.db, login: this.username, password: this.password,
-    }) as { uid?: number } | null;
+    }) as { uid?: number; server_version_info?: unknown } | null;
     const uid = result?.uid;
     if (!uid) throw new Error(`Odoo authentication failed: ${this.username}@${this.db}`);
-    this._uid = uid;
-    return uid;
+    this._session = { uid, version: parseVersion(result.server_version_info) };
+    return this._session;
+  }
+
+  async getUid(): Promise<number> {
+    return (await this.session()).uid;
+  }
+
+  async version(): Promise<OdooVersion> {
+    return (await this.session()).version;
   }
 
   // -------------------------------------------------------------------------
@@ -137,14 +178,14 @@ export class OdooClient {
     args: unknown[] = [],
     kwargs: Record<string, unknown> = {},
   ): Promise<unknown> {
-    await this.getUid();
+    await this.session();
     const kw = { model, method, args, kwargs };
     try {
       return await this.rpc('/web/dataset/call_kw', kw);
     } catch (exc) {
       if (isSessionExpired(exc)) {
-        this._uid = null;
-        await this.getUid();
+        this._session = null;
+        await this.session();
         return await this.rpc('/web/dataset/call_kw', kw);
       }
       throw exc;
@@ -152,13 +193,13 @@ export class OdooClient {
   }
 
   async httpCall(route: string, params: Record<string, unknown> = {}): Promise<unknown> {
-    await this.getUid();
+    await this.session();
     try {
       return await this.rpc(route, params);
     } catch (exc) {
       if (isSessionExpired(exc)) {
-        this._uid = null;
-        await this.getUid();
+        this._session = null;
+        await this.session();
         return await this.rpc(route, params);
       }
       throw exc;
@@ -171,14 +212,14 @@ export class OdooClient {
 
   async ping(): Promise<Record<string, unknown>> {
     const t0 = Date.now();
-    const info = await this.rpc('/web/webclient/version_info', {}) as Record<string, unknown> | null;
+    await this.rpc('/web/webclient/version_info', {});
     const rpcMs = Date.now() - t0;
     const t1 = Date.now();
-    const uid = await this.getUid();
+    const { uid, version } = await this.session();
     const authMs = Date.now() - t1;
     return {
       status: 'ok',
-      server_version: info?.server_version,
+      version,
       db: this.db,
       uid,
       rpc_latency_ms: rpcMs,
@@ -246,7 +287,7 @@ export class OdooClient {
   /** Release session state. Call on shutdown. */
   close(): void {
     this._cookies.clear();
-    this._uid = null;
+    this._session = null;
     this._groupXmlids = null;
   }
 }
