@@ -257,9 +257,11 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           summary,
           res_id: record_id,
           res_model_id: modelId,
+          // Explicit on every series: 19.0+ no longer defaults it to the caller
+          // (19.0/addons/mail/models/mail_activity.py:88).
+          user_id: assigned_user_id ?? await client.getUid(),
         };
         if (note) vals['note'] = note;
-        if (assigned_user_id) vals['user_id'] = assigned_user_id;
 
         const activityId = await client.execute('mail.activity', 'create', [vals]);
         return ok({ activity_id: activityId, activity_type: types[0].name, deadline });

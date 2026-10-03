@@ -67,7 +67,7 @@ the path and signature are unchanged.
 | `website.page.search_read` | `list_pages` | ok | ok | ok | ok | ok | D12 |
 | `website.page.read`, `.write` (`is_published`) | `get_page_arch`, `set_page_visibility` | ok | ok | ok | ok | ok | ok |
 | `mail.activity.type.search_read` | `schedule_activity` | ok | ok | ok | ok | ok | ok |
-| `mail.activity.create` | `schedule_activity` | ok | ok | ok | ok | D11 | D11 |
+| `mail.activity.create` (`user_id` explicit) | `schedule_activity` | ok | ok | ok | ok | ok | ok |
 
 Fields read or written by the calls above exist in every series unless a divergence names them.
 
@@ -91,7 +91,7 @@ until handled and the row reads `ok` across the supported range.
 | D8 | 19.0+ | `name_search` `args` renamed `domain` | call form |
 | D9 | 17.0+ | `message_post` escapes a plain-string body | `postMessage` |
 | D10 | 19.0+ | `message_post` returns `[id]` | `postMessage` |
-| D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | open |
+| D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | call form |
 | D12 | 20.0 | `website.page.url` translatable | open |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
