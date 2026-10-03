@@ -7,7 +7,7 @@ applies_to:
   operations: [create]
 preconditions:
   - A `blog.blog` record exists to attach the post to (`list_records('blog.blog', fields=['name'])` to list).
-  - Post is created in the source language (usually `en_US`). For multilingual publishing, run `translate_blog_post` after editorial review.
+  - "Post is created in the source language (usually `en_US`). Writes go in the user's language, as in the form — when it is not the source, pass `context={'lang': 'en_US'}` on `create` / `update`. For multilingual publishing, run `translate_blog_post` after editorial review."
 ---
 
 # Workflow: Create a `blog.post` record

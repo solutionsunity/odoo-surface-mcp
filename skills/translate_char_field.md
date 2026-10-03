@@ -62,7 +62,7 @@ The `value` for the requested language must equal the string you pushed.
 
 ## Notes
 
-- **Source vs translation are independent.** Updating the field via `update(model, record_id, {field: "..."})` changes the source-language value but does NOT touch other languages. If you change the English title, the Arabic title is still the previous Arabic translation — review it and re-translate if semantics shifted.
+- **Source vs translation are independent.** `update(model, record_id, {field: "..."})` writes the value in the user's language, as the form does — the source-language value only when the user's language is the source (`en_US`); pass `context={'lang': 'en_US'}` to write the source explicitly. Other languages are NOT touched. If you change the English title, the Arabic title is still the previous Arabic translation — review it and re-translate if semantics shifted.
 - **Default lang of the record.** The "source" returned by `translation_get` is the value in the record's source language (usually `en_US` for the install). If you need a different reference language, pass it in `langs`.
 
 ## Failure modes

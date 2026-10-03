@@ -93,7 +93,7 @@ translation_update(
 
 > **Keys are the `source` terms** exactly as `translation_get` returned them — for new and already
 > translated terms alike, on every Odoo version (the surface maps them to what the server expects).
-> Odoo 15.0: source (`en_US`) terms cannot be rewritten term by term — write the field itself with `update`.
+> Odoo 15.0: source (`en_US`) terms cannot be rewritten term by term — write the field itself with `update` and `context={'lang': 'en_US'}`.
 
 ### Step 5 — Verify
 
@@ -108,7 +108,7 @@ Read the result:
 - `results[].langs.<lang>.missing` → exact source terms still untranslated (re-push those keys).
 - `results[].suspect_source` (non-empty) → the SOURCE terms are in the target script: the base-language
   body was overwritten (almost always by `update` + `context:{lang}`). Re-push the base-language source
-  via plain `update` (no lang context), then re-apply translations with `translation_update`.
+  via `update` with `context={'lang': 'en_US'}`, then re-apply translations with `translation_update`.
 
 Or, for a single field, the raw read still works:
 ```

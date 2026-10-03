@@ -12,14 +12,15 @@ run in CI (`.github/workflows/check.yml`).
 | Tools | `src/tools/` | MCP interface: parameters, descriptions, output shape | compares versions, handles a series-specific Odoo shape |
 | Operations | `src/odoo/` | Odoo operations whose call or result differs across series — one function each, one output shape; web-client semantics (expression evaluation) through vendored code | MCP concerns |
 | Vendor | `src/vendor/` | upstream code used unmodified — the web client's `py_js`, `context.js`, `domain.js` and their utilities — with `UPSTREAM.json` | local changes; imports from anywhere but `src/odoo/` |
-| Client | `src/odooClient.ts` | transport, session (uid, target version, the web client's user context) | model-specific logic |
+| Client | `src/odooClient.ts` | transport, session (uid, target version, the web client's user context), and every ORM call carrying that context | model-specific logic |
 
 Tools call an operation for anything version-dependent, and `client.execute` directly for calls
 identical across the supported range.
 
 The surface stands in for the browser: what the web client computes — action domains and
 contexts, view conditions — is computed with the web client's own code, vendored, never
-re-implemented. The process takes the user's timezone, as the browser does.
+re-implemented. The process takes the user's timezone, as the browser does, and every ORM call
+carries the user context (language, timezone, active company) with the call's own on top.
 `scripts/upstream-watch.mjs` (weekly) opens an issue when the vendored upstream changes. A call moves into an operation when it starts to diverge;
 `docs/compatibility.md` lists every call per series and is where divergence is detected.
 

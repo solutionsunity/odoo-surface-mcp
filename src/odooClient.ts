@@ -193,7 +193,25 @@ export class OdooClient {
     args: unknown[] = [],
     kwargs: Record<string, unknown> = {},
   ): Promise<unknown> {
-    return this.httpCall('/web/dataset/call_kw', { model, method, args, kwargs });
+    return this.orm('/web/dataset/call_kw', model, method, args, kwargs);
+  }
+
+  /** A form button's method (type=object), as the form calls it. */
+  async callButton(model: string, method: string, args: unknown[], kwargs: Record<string, unknown> = {}): Promise<unknown> {
+    return this.orm('/web/dataset/call_button', model, method, args, kwargs);
+  }
+
+  /**
+   * An ORM call as the web client makes it: the user context, the call's own context on top.
+   * call_kw replaces the environment context with the call's (15.0/odoo/api.py:436,
+   * 20.0/odoo/service/model.py:49), so the client always sends it
+   * (15.0/addons/web/static/src/core/orm_service.js:104, 20.0/addons/web/static/src/core/orm_plugin.js:127).
+   */
+  private async orm(
+    route: string, model: string, method: string, args: unknown[], kwargs: Record<string, unknown>,
+  ): Promise<unknown> {
+    const context = { ...await this.userContext(), ...kwargs.context as Record<string, unknown> | undefined };
+    return this.httpCall(route, { model, method, args, kwargs: { ...kwargs, context } });
   }
 
   /** A JSON-RPC route in the user's session; an expired session is renewed once. */

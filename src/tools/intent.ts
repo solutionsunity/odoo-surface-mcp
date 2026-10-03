@@ -79,7 +79,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'One2many / many2many fields accept Odoo Command tuples directly: ' +
         '[[0,0,{vals}]] create+link, [[1,id,{vals}]] update line, [[2,id]] delete line, [[6,0,[ids]]] replace set. ' +
         'Pass context to control write behaviour — e.g. {lang: "fr_FR"} writes the value for that language ' +
-        'on translate=True fields, {mail_notrack: true} suppresses chatter entries. ' +
+        'on translate=True fields (without it, the user\'s language, as in the form), ' +
+        '{mail_notrack: true} suppresses chatter entries. ' +
         'Returns {success, updated_fields, non_form_fields} or {error}.',
       inputSchema: {
         model: z.string(),
@@ -154,9 +155,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           }
 
           // type=object → call_button
-          const result = await client.httpCall('/web/dataset/call_button', {
-            model, method: btn.name, args: [[record_id]], kwargs: {},
-          });
+          const result = await client.callButton(model, btn.name, [[record_id]]);
           return ok(await actionOutcome(client, model, record_id, result));
         }
 
