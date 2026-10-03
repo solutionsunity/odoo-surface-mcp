@@ -15,6 +15,9 @@ export const xmlParser = new XMLParser({
   attributeNamePrefix: '',
   preserveOrder: true,
   isArray: () => true,
+  // Standard entities (&quot; &lt; &amp;) count toward maxTotalExpansions, 1000 by default; a 15.0/16.0
+  // form escapes every node's modifiers JSON and exceeds it. The DOCTYPE-entity guards keep their defaults.
+  processEntities: { maxTotalExpansions: Infinity, maxExpansionDepth: 10 },
 });
 
 export type FXPNode = Record<string, unknown>;
