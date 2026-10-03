@@ -14,7 +14,7 @@ import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
 import { evalAction } from '../odoo/expr.js';
 import { TermRow, fieldTranslations, updateFieldTranslations } from '../odoo/translations.js';
 import { Cache } from '../cache.js';
-import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
+import { xmlParser, FXPNode, iterNodes, ok, outputPath, GUIDANCE_HINT } from '../utils.js';
 
 // ─── XML helpers ────────────────────────────────────────────────────────────
 
@@ -144,9 +144,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         offset: z.number().int().default(0),
         order: z.string().optional(),
         context: z.record(z.unknown()).optional(),
+        output_path: outputPath,
       },
     },
-    async ({ model, domain: userDomain, fields: reqFields, action_id, limit, offset, order, context }) => {
+    async ({ model, domain: userDomain, fields: reqFields, action_id, limit, offset, order, context, output_path }) => {
       try {
         const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
         // Top-level terms of a domain are implicitly ANDed, so concatenation ANDs the two.
@@ -161,7 +162,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         const countKwargs: Record<string, unknown> = {};
         if (Object.keys(mergedCtx).length) countKwargs['context'] = mergedCtx;
         const total = await client.execute(model, 'search_count', [domain], countKwargs);
-        return ok({ total, offset, limit, records });
+        return ok({ total, offset, limit, records }, output_path);
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
@@ -211,9 +212,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         action_id: z.number().int().optional(),
         limit: z.number().int().default(20),
         context: z.record(z.unknown()).optional(),
+        output_path: outputPath,
       },
     },
-    async ({ model, query, domain, action_id, limit, context }) => {
+    async ({ model, query, domain, action_id, limit, context, output_path }) => {
       try {
         const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
         const mergedCtx = { ...actionCtx, ...(context ?? {}) };
@@ -221,7 +223,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};
         // Positional: the domain parameter is `args` up to 18.0, `domain` from 19.0.
         const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit], ctxKwarg) as Array<[number, string]>;
-        return ok(results.map(r => ({ id: r[0], display_name: r[1] })));
+        return ok(results.map(r => ({ id: r[0], display_name: r[1] })), output_path);
       } catch (e) { return ok([{ error: String(e) }]); }
     },
   );
