@@ -25,21 +25,31 @@ export type FXPNode = Record<string, unknown>;
 /**
  * Recursively yield all nodes from a fast-xml-parser preserveOrder tree.
  * If `tag` is given, only yield nodes whose element tag matches.
- * If `stopAt` is given, elements with that tag are yielded but not descended into.
  * Each yielded node is the full { tagName: [...children], ':@': {...attrs} } object.
  */
-export function* iterNodes(nodes: FXPNode[], tag?: string, stopAt?: string): Generator<FXPNode> {
+export function* iterNodes(nodes: FXPNode[], tag?: string): Generator<FXPNode> {
   for (const node of nodes) {
     for (const [key, children] of Object.entries(node)) {
       if (key === ':@') continue;
       if (!tag || key === tag) yield node;
-      if (key !== stopAt && Array.isArray(children)) yield* iterNodes(children as FXPNode[], tag, stopAt);
+      if (Array.isArray(children)) yield* iterNodes(children as FXPNode[], tag);
     }
   }
 }
 
-/** A view arch's own nodes: a <field>'s children are its inline sub-view, of the related model. */
-export const viewNodes = (nodes: FXPNode[], tag: string) => iterNodes(nodes, tag, 'field');
+/**
+ * A view arch's own `tag` nodes, each with its ancestors (outermost first). A <field>'s children
+ * are its inline sub-view, of the related model: yielded fields are not descended into.
+ */
+export function* viewNodes(nodes: FXPNode[], tag: string, ancestors: FXPNode[] = []): Generator<[FXPNode, FXPNode[]]> {
+  for (const node of nodes) {
+    for (const [key, children] of Object.entries(node)) {
+      if (key === ':@' || !Array.isArray(children)) continue;
+      if (key === tag) yield [node, ancestors];
+      if (key !== 'field') yield* viewNodes(children as FXPNode[], tag, [...ancestors, node]);
+    }
+  }
+}
 
 // ─── MCP response helper ─────────────────────────────────────────────────────
 

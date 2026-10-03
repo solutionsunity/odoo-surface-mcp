@@ -130,11 +130,13 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
       try {
         const actionMap = await collectModelActions(client, model);
 
-        // 1. View buttons
-        for (const btn of (actionMap['view_buttons'] as Button[] ?? [])) {
-          if (btn.name !== action && btn.label !== action) continue;
+        // 1. View buttons — one method often sits on several buttons with complementary conditions.
+        const matches = (actionMap['view_buttons'] as Button[] ?? []).filter(b => b.name === action || b.label === action);
+        if (matches.length) {
           // The user can only click what the form shows for this record.
-          if (holds(btn.invisible, await formRecordContext(client, model, record_id))) {
+          const evalCtx = await formRecordContext(client, model, record_id);
+          const btn = matches.find(b => !holds(b.invisible, evalCtx));
+          if (!btn) {
             return ok({ error: `Button '${action}' is not visible on ${model}:${record_id} in its current state.` });
           }
 

@@ -66,7 +66,7 @@ export async function viewFieldNames(
   // Arch order, restricted to the model's own fields.
   const { arch, fields } = await views(client, model, viewType);
   const names = new Set<string>();
-  for (const node of viewNodes(parseArch(arch), 'field')) {
+  for (const [node] of viewNodes(parseArch(arch), 'field')) {
     const name = (node[':@'] as Record<string, string> | undefined)?.['name'];
     if (name && name in fields) names.add(name);
   }

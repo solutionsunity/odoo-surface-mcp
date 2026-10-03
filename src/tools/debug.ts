@@ -64,7 +64,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         try {
           const { arch } = await views(client, model, 'form');
           const nodes = xmlParser.parse(arch) as FXPNode[];
-          for (const node of viewNodes(nodes, 'button')) {
+          for (const [node] of viewNodes(nodes, 'button')) {
             const attrs = node[':@'] as Record<string, string> | undefined;
             if (!attrs) continue;
             const btnType = attrs['type'];

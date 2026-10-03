@@ -2,7 +2,7 @@ import { OdooClient } from '../odooClient.js';
 import { xmlParser, FXPNode, viewNodes } from '../utils.js';
 import { since } from './since.js';
 import { views } from './views.js';
-import { Condition, recordEvalContext } from './expr.js';
+import { Condition, anyOf, recordEvalContext } from './expr.js';
 
 const BUTTON_TYPES = new Set(['object', 'action']);
 
@@ -14,17 +14,21 @@ export interface Button {
   invisible: Condition;
 }
 
-function buttons(arch: string, invisible: (attrs: Record<string, string>) => Condition): Button[] {
+type Attrs = Record<string, string>;
+
+/** The renderer skips an invisible node's subtree: a button is hidden by its own condition or any container's. */
+function buttons(arch: string, invisible: (attrs: Attrs) => Condition): Button[] {
   const out: Button[] = [];
-  for (const node of viewNodes(xmlParser.parse(arch) as FXPNode[], 'button')) {
-    const attrs = node[':@'] as Record<string, string> | undefined;
+  for (const [node, ancestors] of viewNodes(xmlParser.parse(arch) as FXPNode[], 'button')) {
+    const attrs = node[':@'] as Attrs | undefined;
     if (!attrs || !BUTTON_TYPES.has(attrs['type'])) continue;
-    out.push({ name: attrs['name'], label: attrs['string'] ?? attrs['name'], type: attrs['type'], invisible: invisible(attrs) });
+    const conditions = [...ancestors, node].map(n => invisible((n[':@'] ?? {}) as Attrs));
+    out.push({ name: attrs['name'], label: attrs['string'] ?? attrs['name'], type: attrs['type'], invisible: anyOf(conditions) });
   }
   return out;
 }
 
-/** The form view's object/action buttons with their invisible condition. */
+/** The form view's object/action buttons with their effective invisible condition. */
 export const formButtons = since<[string], Button[]>('formButtons', {
   // invisible, attrs and states fold into a JSON `modifiers` attribute holding a domain
   // (15.0/odoo/addons/base/models/ir_ui_view.py:82, 16.0/odoo/addons/base/models/ir_ui_view.py:82).

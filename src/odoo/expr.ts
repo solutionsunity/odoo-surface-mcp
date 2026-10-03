@@ -67,3 +67,13 @@ export function holds(condition: Condition, context: Ctx): boolean {
   if (typeof condition === 'boolean') return condition;
   return Array.isArray(condition) ? new Domain(condition).contains(context) : evaluateBooleanExpr(condition, context);
 }
+
+/** The condition that holds when any of `conditions` does: domains or-ed (15.0/16.0), expressions or-ed (17.0+). */
+export function anyOf(conditions: Condition[]): Condition {
+  const live = conditions.filter(c => c !== false);
+  if (live.includes(true)) return true;
+  if (live.length < 2) return live[0] ?? false;
+  return live.every(Array.isArray)
+    ? Domain.or(live as unknown[][]).toList({})
+    : live.map(c => `(${c})`).join(' or ');
+}
