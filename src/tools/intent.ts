@@ -7,7 +7,7 @@ import { Cache } from '../cache.js';
 import { postMessage } from '../odoo/mail.js';
 import { resolveContext, viewFieldNames } from './supporting.js';
 import { evalAction, holds } from '../odoo/expr.js';
-import { Button, formRecordContext } from '../odoo/buttons.js';
+import { formRecordContext } from '../odoo/buttons.js';
 import { collectModelActions } from './discovery.js';
 import { ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -128,10 +128,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, action }) => {
       try {
-        const actionMap = await collectModelActions(client, model);
+        const actions = await collectModelActions(client, model);
 
         // 1. View buttons — one method often sits on several buttons with complementary conditions.
-        const matches = (actionMap['view_buttons'] as Button[] ?? []).filter(b => b.name === action || b.label === action);
+        const matches = actions.view_buttons.filter(b => b.name === action || b.label === action);
         if (matches.length) {
           // The user can only click what the form shows for this record.
           const evalCtx = await formRecordContext(client, model, record_id);
@@ -140,8 +140,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
             return ok({ error: `Button '${action}' is not visible on ${model}:${record_id} in its current state.` });
           }
 
-          if (btn['type'] === 'action') {
-            const actionId = parseInt(String(btn['name']), 10);
+          if (btn.type === 'action') {
+            const actionId = parseInt(btn.name, 10);
             const meta = await client.execute('ir.actions.actions', 'read', [[actionId]], {
               fields: ['type', 'name'],
             }) as Array<{ type: string; name: string }>;
@@ -156,7 +156,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
 
           // type=object → call_button
           const result = await client.httpCall('/web/dataset/call_button', {
-            model, method: btn['name'], args: [[record_id]], kwargs: {},
+            model, method: btn.name, args: [[record_id]], kwargs: {},
           });
           if (result === false || result === null || result === undefined) {
             return ok(await actionCheck(client, model, record_id));
@@ -165,9 +165,9 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         }
 
         // 2. Server actions
-        for (const sa of (actionMap['server_actions'] as Array<Record<string, unknown>> ?? [])) {
-          if (String(sa['id']) !== action && sa['name'] !== action) continue;
-          const result = await client.execute('ir.actions.server', 'run', [[sa['id']]], {
+        for (const sa of actions.server_actions) {
+          if (String(sa.id) !== action && sa.name !== action) continue;
+          const result = await client.execute('ir.actions.server', 'run', [[sa.id]], {
             context: activeCtx(record_id, model),
           });
           if (result === true || result === false || result === null || result === undefined) {

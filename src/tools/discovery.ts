@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { hasAccess } from '../odoo/access.js';
-import { formButtons } from '../odoo/buttons.js';
+import { Button, formButtons } from '../odoo/buttons.js';
 import { Cache } from '../cache.js';
 import { ok } from '../utils.js';
 
@@ -79,15 +79,24 @@ async function relatedModels(client: OdooClient, cache: Cache, base: string): Pr
   return result;
 }
 
-export async function collectModelActions(client: OdooClient, model: string): Promise<Record<string, unknown>> {
+export interface ModelActions {
+  can_create: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  server_actions: Array<{ id: number; name: string; view_types: string }>;
+  reports: Array<{ id: number; name: string; view_types: string; report_type: string }>;
+  view_buttons: Button[];
+}
+
+export async function collectModelActions(client: OdooClient, model: string): Promise<ModelActions> {
+  const modelId = await client.getModelId(model);
+  if (!modelId) throw new Error(`Model '${model}' not found in ir.model`);
+
   const access = {
     can_create: await hasAccess(client, model, 'create'),
     can_write: await hasAccess(client, model, 'write'),
     can_delete: await hasAccess(client, model, 'unlink'),
   };
-
-  const modelId = await client.getModelId(model);
-  if (!modelId) return { ...access, error: `Model '${model}' not found in ir.model` };
 
   const serverActions = await client.execute('ir.actions.server', 'search_read',
     [[['binding_model_id', '=', modelId], ['binding_type', '=', 'action']]],
@@ -99,18 +108,11 @@ export async function collectModelActions(client: OdooClient, model: string): Pr
     { fields: ['id', 'name', 'binding_view_types', 'report_type'] },
   ) as Array<{ id: number; name: string; binding_view_types: string; report_type: string }>;
 
-  let viewButtons: unknown[];
-  try {
-    viewButtons = await formButtons(client, model);
-  } catch (e) {
-    viewButtons = [{ error: String(e) }];
-  }
-
   return {
     ...access,
     server_actions: serverActions.map(a => ({ id: a.id, name: a.name, view_types: a.binding_view_types })),
     reports: reports.map(r => ({ id: r.id, name: r.name, view_types: r.binding_view_types, report_type: r.report_type })),
-    view_buttons: viewButtons,
+    view_buttons: await formButtons(client, model),
   };
 }
 

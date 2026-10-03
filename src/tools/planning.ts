@@ -9,7 +9,7 @@ import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { collectModelActions } from './discovery.js';
 import { ok } from '../utils.js';
-import { Button, formRecordContext } from '../odoo/buttons.js';
+import { formRecordContext } from '../odoo/buttons.js';
 import { holds } from '../odoo/expr.js';
 
 // ─── Register ────────────────────────────────────────────────────────────────
@@ -33,34 +33,30 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
     },
     async ({ model, record_id, action_id: _actionId }) => {
       try {
-        const actionMap = await collectModelActions(client, model);
-        const buttons = (actionMap['view_buttons'] ?? []) as Button[];
+        const actions = await collectModelActions(client, model);
 
         // Group restrictions need no check: the server drops buttons outside the user's groups
         // (15.0/odoo/addons/base/models/ir_ui_view.py:1007, 16.0/odoo/addons/base/models/ir_ui_view.py:1059).
         const evalCtx = await formRecordContext(client, model, record_id);
         const seenBtns = new Set<string>();
         const visibleButtons: unknown[] = [];
-        for (const btn of buttons) {
+        for (const btn of actions.view_buttons) {
           if (holds(btn.invisible, evalCtx) || seenBtns.has(btn.name)) continue;
           seenBtns.add(btn.name);
           visibleButtons.push({ name: btn.name, label: btn.label, type: btn.type });
         }
 
-        // Step 4 & 5: server actions and reports scoped to form
-        const visibleServerActions = (actionMap['server_actions'] as Array<Record<string, unknown>> ?? [])
-          .filter(sa => String(sa['view_types'] ?? '').includes('form'));
-        const visibleReports = (actionMap['reports'] as Array<Record<string, unknown>> ?? [])
-          .filter(r => String(r['view_types'] ?? '').includes('form'));
+        // Server actions and reports bound to the form view.
+        const onForm = (a: { view_types: string }) => (a.view_types || '').includes('form');
 
         return ok({
           record_id,
-          can_create: actionMap['can_create'],
-          can_write: actionMap['can_write'],
-          can_delete: actionMap['can_delete'],
+          can_create: actions.can_create,
+          can_write: actions.can_write,
+          can_delete: actions.can_delete,
           visible_buttons: visibleButtons,
-          server_actions: visibleServerActions,
-          reports: visibleReports,
+          server_actions: actions.server_actions.filter(onForm),
+          reports: actions.reports.filter(onForm),
         });
       } catch (e) { return ok({ error: String(e) }); }
     },
