@@ -189,8 +189,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id }) => {
       try {
-        const meta = await client.execute(model, 'fields_get', [], { attributes: ['type'] }) as Record<string, unknown>;
-        if (!('active' in meta)) return ok({ error: `Model '${model}' has no active field and cannot be archived.` });
+        if (!(await client.validFieldNames(model)).has('active')) return ok({ error: `Model '${model}' has no active field and cannot be archived.` });
         await client.execute(model, 'write', [[record_id], { active: false }]);
         return ok({ success: true, record_id, active: false });
       } catch (e) { return ok({ error: String(e) }); }

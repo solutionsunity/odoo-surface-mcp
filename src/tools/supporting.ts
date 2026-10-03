@@ -318,10 +318,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
       try {
         const { context: merged } = await actionScope(client, cache, action_id, context);
         let fields = await viewFieldNames(client, cache, model, 'form');
-        if (!fields.length) {
-          const meta = await client.execute(model, 'fields_get', [], { attributes: ['string'] }) as Record<string, unknown>;
-          fields = Object.keys(meta);
-        }
+        if (!fields.length) fields = [...await client.validFieldNames(model)];
         return ok(await client.execute(model, 'default_get', [fields], { context: merged }));
       } catch (e) { return ok({ error: String(e) }); }
     },
