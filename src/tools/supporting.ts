@@ -27,12 +27,13 @@ function parseArch(arch: string): FXPNode[] {
 
 /**
  * A window action's domain and context as the web client evaluates them on opening it, with the
- * caller's context as additional context. The caller's context still takes precedence for reads.
+ * caller's context as additional context; the caller's context takes precedence in the result.
+ * Without an action: no domain, the caller's context.
  */
-export async function actionDomainContext(
-  client: OdooClient, cache: Cache, actionId: number | undefined | null, ctx: Record<string, unknown> = {},
-): Promise<[unknown[], Record<string, unknown>]> {
-  if (!actionId) return [[], {}];
+export async function actionScope(
+  client: OdooClient, cache: Cache, actionId: number | undefined, ctx: Record<string, unknown> = {},
+): Promise<{ domain: unknown[]; context: Record<string, unknown> }> {
+  if (!actionId) return { domain: [], context: ctx };
   const key = `action_info:${actionId}`;
   let action = cache.get(key) as { domain: unknown; context: unknown } | undefined;
   if (!action) {
@@ -44,16 +45,7 @@ export async function actionDomainContext(
     cache.set(key, action);
   }
   const { domain, context } = await evalAction(client, action, ctx);
-  return [domain, context];
-}
-
-export async function resolveContext(
-  client: OdooClient, cache: Cache,
-  actionId: number | undefined | null,
-  ctx: Record<string, unknown> | undefined | null,
-): Promise<Record<string, unknown>> {
-  const [, actionCtx] = await actionDomainContext(client, cache, actionId, ctx ?? {});
-  return { ...actionCtx, ...(ctx ?? {}) };
+  return { domain, context: { ...context, ...ctx } };
 }
 
 export async function viewFieldNames(
@@ -156,19 +148,15 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, domain: userDomain, fields: reqFields, action_id, limit, offset, order, context, output_path }) => {
       try {
-        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
+        const scope = await actionScope(client, cache, action_id, context);
         // Top-level terms of a domain are implicitly ANDed, so concatenation ANDs the two.
-        const domain = [...actionDomain, ...(userDomain ?? [])];
-        const mergedCtx = { ...actionCtx, ...(context ?? {}) };
+        const domain = [...scope.domain, ...(userDomain ?? [])];
         let fields = reqFields?.length ? reqFields : await viewFieldNames(client, cache, model, 'list');
         if (!fields.length) fields = ['display_name'];
-        const kwargs: Record<string, unknown> = { fields, limit, offset };
+        const kwargs: Record<string, unknown> = { fields, limit, offset, context: scope.context };
         if (order) kwargs['order'] = order;
-        if (Object.keys(mergedCtx).length) kwargs['context'] = mergedCtx;
         const records = await client.execute(model, 'search_read', [domain], kwargs);
-        const countKwargs: Record<string, unknown> = {};
-        if (Object.keys(mergedCtx).length) countKwargs['context'] = mergedCtx;
-        const total = await client.execute(model, 'search_count', [domain], countKwargs);
+        const total = await client.execute(model, 'search_count', [domain], { context: scope.context });
         return ok({ total, offset, limit, records }, output_path);
       } catch (e) { return ok({ error: String(e) }); }
     },
@@ -219,9 +207,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
       try {
         let fields = reqFields?.length ? reqFields : await viewFieldNames(client, cache, model, 'form');
         if (!fields.length) fields = ['display_name'];
-        const kwargs: Record<string, unknown> = { fields };
-        if (context && Object.keys(context).length) kwargs['context'] = context;
-        const rows = await client.execute(model, 'read', [[record_id]], kwargs) as unknown[];
+        const rows = await client.execute(model, 'read', [[record_id]], { fields, context }) as unknown[];
         if (!rows.length) return ok({ error: `Record ${model}:${record_id} not found or not accessible.` });
         return ok(rows[0]);
       } catch (e) { return ok({ error: String(e) }); }
@@ -250,12 +236,11 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, query, domain, action_id, limit, context, output_path }) => {
       try {
-        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
-        const mergedCtx = { ...actionCtx, ...(context ?? {}) };
-        const combined = [...actionDomain, ...(domain ?? [])];
-        const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};
+        const scope = await actionScope(client, cache, action_id, context);
+        const combined = [...scope.domain, ...(domain ?? [])];
         // Positional: the domain parameter is `args` up to 18.0, `domain` from 19.0.
-        const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit], ctxKwarg) as Array<[number, string]>;
+        const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit],
+          { context: scope.context }) as Array<[number, string]>;
         return ok(results.map(r => ({ id: r[0], display_name: r[1] })), output_path);
       } catch (e) { return ok([{ error: String(e) }]); }
     },
@@ -312,7 +297,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, action_id, context }) => {
       try {
-        const merged = await resolveContext(client, cache, action_id, context);
+        const { context: merged } = await actionScope(client, cache, action_id, context);
         let fields = await viewFieldNames(client, cache, model, 'form');
         if (!fields.length) {
           const meta = await client.execute(model, 'fields_get', [], { attributes: ['string'] }) as Record<string, unknown>;

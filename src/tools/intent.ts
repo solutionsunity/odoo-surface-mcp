@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { postMessage } from '../odoo/mail.js';
-import { resolveContext, viewFieldNames } from './supporting.js';
+import { actionScope, viewFieldNames } from './supporting.js';
 import { evalAction, holds } from '../odoo/expr.js';
 import { formRecordContext } from '../odoo/buttons.js';
 import { collectModelActions } from './discovery.js';
@@ -62,8 +62,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, values, action_id, context }) => {
       try {
-        const mergedCtx = await resolveContext(client, cache, action_id, context);
-        const newId = await client.execute(model, 'create', [values], { context: mergedCtx }) as number;
+        const { context: ctx } = await actionScope(client, cache, action_id, context);
+        const newId = await client.execute(model, 'create', [values], { context: ctx }) as number;
         const rows = await client.execute(model, 'read', [[newId]], { fields: ['id', 'display_name'] }) as unknown[];
         return ok(rows[0] ?? { id: newId });
       } catch (e) { return ok({ error: String(e) }); }
@@ -100,9 +100,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           }
         }
         if (!Object.keys(writable).length) return ok({ error: 'No writable fields found in the provided values.' });
-        const kwargs: Record<string, unknown> = {};
-        if (context && Object.keys(context).length) kwargs['context'] = context;
-        await client.execute(model, 'write', [[record_id], writable], kwargs);
+        await client.execute(model, 'write', [[record_id], writable], { context });
         const nonFormWritten = Object.keys(writable).filter(k => !formFields.has(k));
         const result: Record<string, unknown> = { success: true, updated_fields: Object.keys(writable) };
         if (nonFormWritten.length) result['non_form_fields'] = nonFormWritten;
