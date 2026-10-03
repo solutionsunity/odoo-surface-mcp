@@ -47,7 +47,7 @@ the path and signature are unchanged.
 | `hasAccess` (`src/odoo/access.ts`) | `get_model_actions`, `get_model_interface`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
 | `get_field_translations` | `translation_get`, `translation_audit` | D2 | ok | ok | ok | ok | ok |
 | `update_field_translations` | `translation_update` | D2 | ok | ok | ok | ok | ok |
-| `message_post` | `post_message` | ok | ok | D9 | D9 | D9, D10 | D9, D10 |
+| `postMessage` (`src/odoo/mail.ts`) | `post_message` | ok | ok | ok | ok | ok | ok |
 
 ### Specific models
 
@@ -89,8 +89,8 @@ until handled and the row reads `ok` across the supported range.
 | D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | `hasAccess` |
 | D7 | 19.0+ | `res.users.groups_id` renamed | call removed |
 | D8 | 19.0+ | `name_search` `args` renamed `domain` | call form |
-| D9 | 17.0+ | `message_post` escapes a plain-string body | open |
-| D10 | 19.0+ | `message_post` returns `[id]` | open |
+| D9 | 17.0+ | `message_post` escapes a plain-string body | `postMessage` |
+| D10 | 19.0+ | `message_post` returns `[id]` | `postMessage` |
 | D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | open |
 | D12 | 20.0 | `website.page.url` translatable | open |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
@@ -151,6 +151,8 @@ the client-side group check has nothing to evaluate — on 15.0 too
 
 **D9 — 17.0+: `message_post` escapes a plain-string body.** HTML sent as `body` is stored escaped
 unless `body_is_html=True` (`17.0/addons/mail/models/mail_thread.py:2224`). 15.0/16.0 store it as HTML.
+`post_message` takes plain text on every series — what a user types in the chatter — and escapes it
+client-side on 15.0/16.0.
 
 **D10 — 19.0+: `message_post` returns `[id]`.** `@api.returns` is dropped
 (`19.0/addons/mail/models/mail_thread.py:2199`) and `call_kw` returns recordsets as `.ids`

@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
+import { postMessage } from '../odoo/mail.js';
 import { resolveContext, viewFieldNames, safeEvalDict } from './supporting.js';
 import { collectModelActions } from './discovery.js';
 import { ok, GUIDANCE_HINT } from '../utils.js';
@@ -199,7 +200,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'post_message',
     {
       description:
-        'Post a message or internal note on a record (requires mail.thread). ' +
+        'Post a plain-text message or internal note on a record (requires mail.thread). ' +
+        'HTML in body is shown as text, as when typed in the chatter. ' +
         'message_type: "comment" (sent to followers) or "note" (internal log note, not emailed). ' +
         'Returns {message_id} or {error}.',
       inputSchema: {
@@ -211,11 +213,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, body, message_type }) => {
       try {
-        const msgId = await client.execute(model, 'message_post', [[record_id]], {
-          body,
-          message_type: 'comment',
-          subtype_xmlid: message_type === 'note' ? 'mail.mt_note' : 'mail.mt_comment',
-        });
+        const msgId = await postMessage(client, model, record_id, body,
+          message_type === 'note' ? 'mail.mt_note' : 'mail.mt_comment');
         return ok({ message_id: msgId });
       } catch (e) { return ok({ error: String(e) }); }
     },
