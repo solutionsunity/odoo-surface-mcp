@@ -7,6 +7,11 @@ async function readField(c: OdooClient, model: string, id: number, field: string
   return rows[0][field];
 }
 
+/** Where an attachment is served: its own url, else images through /web/image, other files through /web/content. */
+export function attachmentSrc(a: { id: number; mimetype?: string | false; url?: string | false }): string {
+  return a.url || (a.mimetype && a.mimetype.startsWith('image/') ? `/web/image/${a.id}` : `/web/content/${a.id}`);
+}
+
 /** Base64 content of a binary field, or false when empty. */
 export const readBinary = since<[string, number, string], string | false>('readBinary', {
   // read returns the base64 string.

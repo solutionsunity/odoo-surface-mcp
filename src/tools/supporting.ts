@@ -10,7 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
-import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
+import { attachmentSrc, readBinary, writeAttachmentContent } from '../odoo/binary.js';
 import { evalAction } from '../odoo/expr.js';
 import { TermRow, fieldTranslations, updateFieldTranslations } from '../odoo/translations.js';
 import { readGroup } from '../odoo/group.js';
@@ -431,10 +431,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           [domain],
           { fields: ['id', 'name', 'mimetype', 'res_model', 'res_id', 'public', 'url'], limit },
         ) as AttachRow[];
-        return ok(rows.map(r => ({
-          ...r,
-          src: r.url || (r.mimetype?.startsWith('image/') ? `/web/image/${r.id}` : `/web/content/${r.id}`),
-        })));
+        return ok(rows.map(r => ({ ...r, src: attachmentSrc(r) })));
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
@@ -458,7 +455,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'The MCP server handles the transfer — no binary passes through the AI context. ' +
         'Pass attachment_id to replace an existing attachment in-place (same ID, no arch update needed). ' +
         'Omit attachment_id to create a new attachment. ' +
-        'Returns {id, src} usable in any context (arch_db, chatter, record field).',
+        'is_image: process the file as an image (validated and optimised; Odoo rejects other files) — ' +
+        'false for JS/CSS/HTML/JSON/fonts. ' +
+        'Returns {id, src} usable in any context (arch_db, chatter, record field); src is /web/image/{id} ' +
+        'for images, /web/content/{id} for other files.',
       inputSchema: {
         source: z.string(),
         name: z.string().optional(),
@@ -494,21 +494,25 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           if (detectedMime) writeVals['mimetype'] = detectedMime;
           if (isPublic) writeVals['public'] = true;
           await writeAttachmentContent(client, attachment_id, data, writeVals);
-          const src = is_image ? `/web/image/${attachment_id}` : `/web/content/${attachment_id}`;
-          return ok({ id: attachment_id, src, name: filename });
+          const [att] = await client.execute('ir.attachment', 'read', [[attachment_id]], {
+            fields: ['mimetype', 'url'],
+          }) as Array<{ id: number; mimetype: string | false; url: string | false }>;
+          return ok({ id: attachment_id, src: attachmentSrc(att), name: filename });
         }
 
         // ── Create new attachment ─────────────────────────────────────────
+        // is_image: Odoo validates and processes the file as an image, rejecting any other
+        // (17.0/addons/web_editor/controllers/main.py:254).
         const params: Record<string, unknown> = { name: filename, data, res_model, is_image };
         if (res_id !== undefined) params['res_id'] = res_id;
-        const result = await client.httpCall('/web_editor/attachment/add_data', params) as Record<string, unknown>;
-        const attachId = result?.['id'] as number | undefined;
-        if (!attachId) return ok({ error: 'Upload failed: no attachment id returned', raw: result });
+        const result = await client.httpCall('/web_editor/attachment/add_data', params) as
+          { id?: number; name?: string; mimetype?: string | false; url?: string | false; error?: string };
+        if (result.error) return ok({ error: `Upload failed: ${result.error}` });
+        if (!result.id) return ok({ error: 'Upload failed: no attachment id returned', raw: result });
         if (isPublic) {
-          await client.execute('ir.attachment', 'write', [[attachId], { public: true }]);
+          await client.execute('ir.attachment', 'write', [[result.id], { public: true }]);
         }
-        const src = is_image ? `/web/image/${attachId}` : `/web/content/${attachId}`;
-        return ok({ id: attachId, src, name: result?.['name'] ?? filename });
+        return ok({ id: result.id, src: attachmentSrc({ ...result, id: result.id }), name: result.name ?? filename });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );

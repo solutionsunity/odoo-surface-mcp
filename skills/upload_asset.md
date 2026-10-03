@@ -3,7 +3,7 @@ name: upload_asset
 summary: Upload static website assets (JS, CSS, HTML, JSON) as public ir.attachment records using fetch_and_upload.
 hint: |
   Use for any non-image file that must be served from Odoo via /web/content/{id}.
-  Covers JS, CSS, HTML fragments, JSON manifests, fonts, SVGs.
+  Covers JS, CSS, HTML fragments, JSON manifests, fonts. SVGs are images: src comes back as /web/image/{id}.
   fetch_and_upload handles the file read and transfer — no base64, no shell encoding.
   Always set public: true and is_image: false.
 applies_to:
@@ -15,7 +15,7 @@ preconditions:
   - For website-facing assets: public must be true.
 anti_patterns:
   - "Base64-encoding files manually — fetch_and_upload makes this obsolete for local files."
-  - "Passing is_image: true for JS/CSS/HTML/JSON — it changes the served URL to /web/image which may not work for non-image MIME types."
+  - "Passing is_image: true for JS/CSS/HTML/JSON — Odoo processes the upload as an image and rejects it (\"Uploaded image's format is not supported\")."
   - "Reading the attachment's content field after upload (`datas`; `raw` on Odoo 20) — it is base64 and floods context instantly."
   - "Using /web/image/{id} for JS/CSS/HTML assets — use /web/content/{id} instead."
 ---
