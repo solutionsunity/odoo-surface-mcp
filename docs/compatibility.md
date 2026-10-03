@@ -45,8 +45,8 @@ the path and signature are unchanged.
 | `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
 | `formButtons` + `holds` (`src/odoo/buttons.ts`, `expr.ts`) | `get_model_actions`, `get_available_actions`, `execute_action` | ok | ok | ok | ok | ok | ok |
 | `hasAccess` (`src/odoo/access.ts`) | `get_model_actions`, `get_model_interface`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
-| `get_field_translations` | `translation_get`, `translation_audit` | D2 | ok | ok | ok | ok | ok |
-| `update_field_translations` | `translation_update` | D2 | ok | ok | ok | ok | ok |
+| `fieldTranslations` (`src/odoo/translations.ts`) | `translation_get`, `translation_audit` | ok | ok | ok | ok | ok | ok |
+| `updateFieldTranslations` (`src/odoo/translations.ts`) | `translation_update` | ok | ok | ok | ok | ok | ok |
 | `postMessage` (`src/odoo/mail.ts`) | `post_message` | ok | ok | ok | ok | ok | ok |
 
 ### Specific models
@@ -82,7 +82,7 @@ until handled and the row reads `ok` across the supported range.
 | # | Series | Divergence | Status |
 |---|---|---|---|
 | D1 | 15.0 | No `get_views` | `views` |
-| D2 | 15.0 | No field-translation API | open |
+| D2 | 15.0 | No field-translation API | `fieldTranslations`, `updateFieldTranslations` |
 | D3 | 15.0, 16.0 | Conditional visibility is a domain, not an expression | `formButtons` |
 | D4 | 18.0+ | `get_views` wraps model fields | `views` |
 | D5 | 18.0+ | View type `tree` renamed `list` | `views` |
@@ -114,6 +114,11 @@ Effect: view buttons and `inspect_view` error; `list_records` / `get_record` fal
 - Write, callable translate (html / xml, incl. `ir.ui.view.arch_db`): write `value` on the
   `model_terms` row matched by `src`. Writing the record with a `lang` context overwrites the
   source (`15.0/odoo/fields.py:1634`).
+
+The operations do what the 15.0 translate dialog does — `translate_fields`, then its rows — and
+return 16.0's `get_field_translations` shape. One gap, by design: source (`en_US`) terms of an
+html/xml field cannot be rewritten term by term on 15.0 (that needs the server-side term
+tokenizer); it is an error naming the alternative — write the field itself.
 
 **D3 — 15.0, 16.0: conditional visibility is a domain.** 17.0+ keeps `invisible` on the node as a
 Python expression, which `get_available_actions` evaluates. 15.0 holds conditions in `attrs`

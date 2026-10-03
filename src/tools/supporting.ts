@@ -12,6 +12,7 @@ import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
 import { evalAction } from '../odoo/expr.js';
+import { TermRow, fieldTranslations, updateFieldTranslations } from '../odoo/translations.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -99,8 +100,6 @@ function stripQwebWrapper(arch: string): { html: string; hasDynamic: boolean } {
 
 // ─── Translation helpers ──────────────────────────────────────────────────────
 
-type TermRow = { lang: string; source: string; value: string };
-
 // Arabic / Arabic-supplement / presentation-form ranges. Used to detect a source
 // term that is actually a translation (the "translation stored as source" defect).
 const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
@@ -117,17 +116,6 @@ function groupTerms(rows: TermRow[]): { order: string[]; byTerm: Map<string, Map
     byTerm.get(r.source)!.set(r.lang, r.value ?? '');
   }
   return { order, byTerm };
-}
-
-async function fetchTermRows(
-  client: OdooClient, model: string, recordId: number, fieldName: string, langs?: string[],
-): Promise<{ rows: TermRow[]; meta: Record<string, unknown> }> {
-  const kwargs: Record<string, unknown> = {};
-  if (langs?.length) kwargs['langs'] = langs;
-  const result = await client.execute(
-    model, 'get_field_translations', [[recordId], fieldName], kwargs,
-  ) as [TermRow[], Record<string, unknown>];
-  return { rows: result[0] ?? [], meta: result[1] ?? {} };
 }
 
 // ─── Register ────────────────────────────────────────────────────────────────
@@ -577,7 +565,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         for (const id of ids) {
           for (const f of fields) {
             try {
-              const { rows, meta } = await fetchTermRows(client, model, id, f, langs);
+              const { rows, meta } = await fieldTranslations(client, model, id, f, langs);
               results.push({ record_id: id, field_name: f, translations: rows, ...meta });
             } catch (e) {
               results.push({ record_id: id, field_name: f, error: String(e) });
@@ -629,9 +617,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           const results: Array<Record<string, unknown>> = [];
           for (const u of updates) {
             try {
-              await client.execute(
-                model, 'update_field_translations', [[u.record_id], u.field_name, u.translations],
-              );
+              await updateFieldTranslations(client, model, u.record_id, u.field_name, u.translations);
               results.push({ record_id: u.record_id, field_name: u.field_name, success: true });
             } catch (e) {
               results.push({ record_id: u.record_id, field_name: u.field_name, error: String(e) });
@@ -644,17 +630,13 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           return ok({ error: 'Provide either updates[] or (record_id, field_name, translations).' });
         }
         if (!Array.isArray(record_id)) {
-          await client.execute(
-            model, 'update_field_translations', [[record_id], field_name, translations],
-          );
+          await updateFieldTranslations(client, model, record_id, field_name, translations);
           return ok({ success: true });
         }
         const results: Array<Record<string, unknown>> = [];
         for (const id of record_id) {
           try {
-            await client.execute(
-              model, 'update_field_translations', [[id], field_name, translations],
-            );
+            await updateFieldTranslations(client, model, id, field_name, translations);
             results.push({ record_id: id, field_name, success: true });
           } catch (e) {
             results.push({ record_id: id, field_name, error: String(e) });
@@ -701,7 +683,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         for (const id of ids) {
           for (const f of fields) {
             try {
-              const { rows, meta } = await fetchTermRows(client, model, id, f, langsFilter);
+              const { rows, meta } = await fieldTranslations(client, model, id, f, langsFilter);
               const { order, byTerm } = groupTerms(rows);
               const presentLangs = new Set(rows.map(r => r.lang));
               const targets = target_langs?.length
