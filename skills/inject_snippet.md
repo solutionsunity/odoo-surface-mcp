@@ -10,7 +10,7 @@ applies_to:
 tools_used: [list_snippets, get_snippet, get_page_arch, set_page_arch]
 preconditions:
   - "The view is a Website or QWeb template (Type: qweb)."
-  - "You have the ir.ui.view id (or the website.page view_id)."
+  - "You have the website.page id (read through get_page_arch) or, for a view that is not a page, the ir.ui.view id."
   - "The snippet name is known or discovered via list_snippets."
 anti_patterns:
   - "Editing backend form/tree/search views."
@@ -37,14 +37,15 @@ Returns snippet names and categories. Identify the snippet you need (e.g. `s_tex
 ## Step 2 — Fetch canonical HTML
 
 ```
-get_snippet(name='<snippet_name>')
+get_snippet(key='website.<snippet_name>')
 ```
 Returns the full canonical HTML block including all required `data-snippet`, `data-name`, and class attributes. This is the authoritative source — do not modify the outer wrapper.
 
 ## Step 3 — Read current arch
 
 ```
-get_page_arch(page_id=<view_id>)
+get_page_arch(page_id=<page_id>)       # website.page id → {view_id, arch_db}
+get_record('ir.ui.view', <view_id>, fields=['arch_db'])   # a view that is not a page
 ```
 Returns the full current `arch_db`. Hold this in memory — you will write back a modified version. Do **not** call `get_page_arch` again after editing.
 
@@ -66,16 +67,13 @@ Insert the snippet HTML at the injection point. Rules:
 ## Step 6 — Write back in a single call
 
 ```
-set_page_arch(page_id=<view_id>, arch='<full modified arch>')
+set_page_arch(view_id=<view_id>, arch='<full modified arch>')
 ```
 One call. If this fails, the original arch is intact — diagnose and retry with corrected XML.
 
 ## Step 7 — Verify
 
-```
-get_page_arch(page_id=<view_id>)
-```
-Confirm the snippet appears at the expected position with its `data-snippet` attribute intact.
+Re-read with the same call as Step 3. Confirm the snippet appears at the expected position with its `data-snippet` attribute intact.
 Optionally visit the page URL in the browser for visual confirmation.
 
 ## Failure modes

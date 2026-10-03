@@ -10,7 +10,7 @@ applies_to:
 tools_used: [get_page_arch, set_page_arch, get_record]
 preconditions:
   - "The view is a Website or QWeb template (Type: qweb)."
-  - "You have the ir.ui.view id. For a website.page, read view_id from the page record first."
+  - "You have the website.page id (read through get_page_arch) or, for a view that is not a page, the ir.ui.view id."
   - "You know exactly what to change before calling get_page_arch."
 anti_patterns:
   - "Editing backend form/tree/search views (risk of breaking core UI and upgrade paths)."
@@ -28,22 +28,16 @@ Before proceeding, confirm the view type.
 - **FORBIDDEN:** `form`, `tree`, `kanban`, `search`.
 Editing backend views via database `arch_db` creates technical debt and breaks during upgrades.
 
-## Step 1 — Resolve view id
-
-If you have a `website.page` record id, not an `ir.ui.view` id:
-```
-get_record('website.page', page_id, fields=['view_id', 'name', 'url'])
-```
-Capture `view_id[0]` (the integer id). All subsequent calls use the **view id**, not the page id.
-
-## Step 2 — Read arch once
+## Step 1 — Read arch once
 
 ```
-get_page_arch(page_id=<view_id>)
+get_page_arch(page_id=<page_id>)       # website.page id → {view_id, arch_db}
+get_record('ir.ui.view', <view_id>, fields=['arch_db'])   # a view that is not a page
 ```
+`get_page_arch` takes the **page** id and returns the view id with the arch; writes use the **view** id.
 Hold the full arch string in memory. This is the only read. Do **not** call again.
 
-## Step 3 — Plan all mutations before touching anything
+## Step 2 — Plan all mutations before touching anything
 
 Before editing a single character, enumerate every change:
 - What element(s) are targeted (by id, class, data-snippet, or text content)?
@@ -52,7 +46,7 @@ Before editing a single character, enumerate every change:
 
 Resolve all ambiguity from the arch you already have. No extra tool calls.
 
-## Step 4 — Apply all mutations in memory
+## Step 3 — Apply all mutations in memory
 
 Edit the arch string (or parse as XML mentally, then serialize). Rules:
 - **Well-formed XML only:** all tags closed, attributes quoted, no bare `&`.
@@ -60,18 +54,16 @@ Edit the arch string (or parse as XML mentally, then serialize). Rules:
 - **Do not remove `oe_structure` classes** — they mark editable regions.
 - **QWeb directives (`t-if`, `t-foreach`, `t-att-*`)**: preserve exactly; mutation of these requires understanding the template logic.
 
-## Step 5 — Write once
+## Step 4 — Write once
 
 ```
-set_page_arch(page_id=<view_id>, arch='<full mutated arch>')
+set_page_arch(view_id=<view_id>, arch='<full mutated arch>')
 ```
 One call. If the XML is invalid, Odoo will reject it and return an error — the original arch is intact.
 
-## Step 6 — Verify
+## Step 5 — Verify
 
-```
-get_page_arch(page_id=<view_id>)
-```
+Re-read with the same call as Step 1.
 Confirm the mutations appear exactly as intended. If a mutation is missing, the XML may have been normalized by Odoo — compare to the written string.
 
 ## Recovery

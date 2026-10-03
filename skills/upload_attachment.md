@@ -5,18 +5,17 @@ hint: |
   Use for any file that must be stored in Odoo and later referenced by a record
   (cover image, document, media). Always set `public: true` for website-facing assets.
   To update an existing attachment in-place, pass `attachment_id` — the ID stays the same,
-  no arch or reference updates needed. For Unsplash images use the `fetch_and_upload` tool —
-  Odoo fetches the binary itself via its Unsplash integration; no base64 step needed.
+  no arch or reference updates needed. Remote files (any URL, e.g. an Unsplash image URL) go
+  through `fetch_and_upload` too — the MCP server downloads them; no base64 in context.
 applies_to:
   models: ["*"]
   operations: [upload, attach, image, replace, update]
 tools_used: [create, fetch_and_upload, list_attachments]
 preconditions:
-  - For binary uploads: file must be base64-encoded before passing to `datas`.
-  - For URL attachments: the URL must be publicly reachable (Odoo stores the reference, not the binary).
-  - For Unsplash: Unsplash API key must be configured in Odoo website settings.
+  - "Local files need an absolute path readable by the MCP server; remote files a URL the MCP server can reach."
+  - "For URL-reference attachments (Path B) the URL must be publicly reachable — Odoo stores the reference, not the binary."
 anti_patterns:
-  - "Fetching `datas` field via `get_record` or `list_attachments` — it is base64 binary and will flood context instantly. Never request it."
+  - "Reading an attachment's content field (`datas`; `raw` on Odoo 20) via `get_record` or `list_records` — it is base64 and floods context instantly. Use `download_binary` to get the bytes onto disk."
   - "Using `update` on a record's binary field directly (e.g. `blog.post.cover`) without creating an ir.attachment first — cover images must be attachments."
   - "Forgetting `public: true` on website-facing attachments — image will return 403 in the browser."
   - "Creating a new attachment to replace an existing one — use attachment_id to update in-place and keep the same ID."
@@ -79,14 +78,20 @@ Reference the `url` field directly in arch `src` attributes.
 
 ---
 
-## Path C — Unsplash image (preferred for stock photography)
+## Path C — Remote file (stock photography, any URL)
 
 ```
-fetch_and_upload(query='<search term>', model='blog.post', record_id=<id>)
+fetch_and_upload(
+  source='https://images.unsplash.com/photo-…?w=1600',
+  name='cover.jpg',
+  is_image=true,
+  public=true,
+  res_model='blog.post', res_id=<id>   # optional: link to a record
+)
 ```
 
-Odoo fetches the Unsplash binary, stores it as a binary attachment, and links it to the record.
-Returns the attachment id and `/web/image/<id>` URL ready to use.
+The MCP server downloads the file and stores it as a binary attachment. Pick the image URL yourself
+(e.g. from Unsplash); there is no search integration. Returns `{ id, src }` with `/web/image/<id>`.
 
 ---
 
@@ -96,7 +101,7 @@ Returns the attachment id and `/web/image/<id>` URL ready to use.
 list_attachments(res_model='<model>', res_id=<record_id>)
 ```
 Confirm the attachment appears with correct `name`, `mimetype`, and `public` flag.
-Do **not** pass `fields=['datas']` — this floods context with base64.
+Never request the content field (`datas`; `raw` on Odoo 20) — it floods context with base64.
 
 ## Failure modes
 
@@ -104,5 +109,5 @@ Do **not** pass `fields=['datas']` — this floods context with base64.
 |---|---|---|
 | 403 on `/web/image/<id>` | `public` not set to `true` | `update('ir.attachment', id, {public: true})` |
 | Image not displayed in website editor | `res_model`/`res_id` not set, attachment not linked | Re-create with correct `res_model` and `res_id` |
-| `datas` field causes context overflow | Requested `datas` in a list or get call | Remove `datas` from fields param; never fetch binary fields |
+| Context overflow after a read | Requested the content field (`datas` / `raw`) in a list or get call | Never fetch binary fields; use `download_binary` |
 | Arch references break after update | Created a new attachment instead of replacing | Use `attachment_id` param to replace in-place; ID stays the same |

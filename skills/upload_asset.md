@@ -16,7 +16,7 @@ preconditions:
 anti_patterns:
   - "Base64-encoding files manually — fetch_and_upload makes this obsolete for local files."
   - "Passing is_image: true for JS/CSS/HTML/JSON — it changes the served URL to /web/image which may not work for non-image MIME types."
-  - "Fetching `datas` field after upload — it is base64 binary and will flood context instantly."
+  - "Reading the attachment's content field after upload (`datas`; `raw` on Odoo 20) — it is base64 and floods context instantly."
   - "Using /web/image/{id} for JS/CSS/HTML assets — use /web/content/{id} instead."
 ---
 

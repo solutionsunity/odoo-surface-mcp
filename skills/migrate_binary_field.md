@@ -9,14 +9,14 @@ hint: |
 applies_to:
   models: ["*"]
   operations: [migrate, copy, transfer, binary, image, document, upload, download]
-tools_used: [download_binary, upload_binary, list_attachments, search_records]
+tools_used: [download_binary, upload_binary, list_attachments, list_records]
 preconditions:
   - Both MCP servers must share filesystem access to the temp path (e.g. /tmp).
   - The source record and target record must already exist.
   - The field must be a binary (base64) field — not a Many2one to ir.attachment.
   - The target record must be writable (correct state, correct ACL).
 anti_patterns:
-  - "Calling get_record with a binary field name — datas / image_1920 / photo will return a base64 blob and flood the AI context."
+  - "Calling get_record with a binary field name — datas (raw on Odoo 20) / image_1920 / photo will return a base64 blob and flood the AI context."
   - "Using fetch_and_upload for cross-instance binary migration — it fetches from HTTP URLs, not Odoo ORM binary fields."
   - "Choosing a relative path for dest_path / source_path — always use an absolute path (e.g. /tmp/...)."
   - "Reusing the same temp path for multiple binaries in parallel — use unique filenames per field/record."
@@ -83,8 +83,9 @@ list_attachments(res_model='realestate.valuation.inspection.photo', res_id=<src_
 ```
 
 If `res_field` is set, the binary lives on the record's ORM field → use `download_binary` / `upload_binary`.
-If no `res_field` entry, the binary IS the `ir.attachment.datas` field itself →
-migrate the attachment record separately using `download_binary(model='ir.attachment', ...)`.
+If no `res_field` entry, the binary IS the attachment's own content → migrate the attachment record
+separately: `download_binary(model='ir.attachment', record_id=<id>, field='datas', ...)` — the field is
+`raw` on Odoo 20 (`datas` was removed); use the field name of each instance's version.
 
 ---
 

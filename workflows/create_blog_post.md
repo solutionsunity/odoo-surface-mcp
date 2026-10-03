@@ -6,7 +6,7 @@ applies_to:
   models: [blog.post, blog.blog, blog.tag]
   operations: [create]
 preconditions:
-  - A `blog.blog` record exists to attach the post to (`search_records('blog.blog', [])` to list).
+  - A `blog.blog` record exists to attach the post to (`list_records('blog.blog', fields=['name'])` to list).
   - Post is created in the source language (usually `en_US`). For multilingual publishing, run `translate_blog_post` after editorial review.
 ---
 
@@ -17,7 +17,7 @@ Source-language only. Translation is a separate lifecycle step — see `translat
 ## Step 1 — Resolve blog id
 
 ```
-search_records('blog.blog', [], fields=['id', 'name'])
+list_records('blog.blog', fields=['name'])
 ```
 Capture the target `blog.blog` id. If no blog exists, create one: `create('blog.blog', {name: 'My Blog'})`.
 
@@ -54,22 +54,14 @@ get_record('blog.post', <post_id>, fields=['website_url', 'seo_name'])
 
 Apply skill `upload_attachment`:
 
-**Option A — Unsplash (preferred):**
+**Option A — Remote image (e.g. an Unsplash photo URL) or local file:**
 ```
-fetch_and_upload(query='<search term>', model='blog.post', record_id=<post_id>)
+fetch_and_upload(source='<https://… or /absolute/path.jpg>', name='cover.jpg',
+                 is_image=true, public=true, res_model='blog.post', res_id=<post_id>)
 ```
-Capture the returned attachment id and `/web/image/<id>` URL.
+Capture the returned attachment id and `/web/image/<id>` URL. No base64 passes through context.
 
-**Option B — Binary file:**
-Base64-encode locally, then:
-```
-create('ir.attachment', {
-  name: 'cover.jpg', type: 'binary', datas: '<base64>',
-  mimetype: 'image/jpeg', res_model: 'blog.post', res_id: <post_id>, public: true
-})
-```
-
-**Option C — External URL:**
+**Option B — External URL (reference only, not stored):**
 ```
 create('ir.attachment', {name: 'cover', type: 'url', url: '<url>', public: true,
   res_model: 'blog.post', res_id: <post_id>})
@@ -84,23 +76,20 @@ update('blog.post', <post_id>, {
 
 ## Step 4 — Build body content
 
-Apply skill `inject_snippet` for each content section:
+The body is the post's own `content` field (HTML) — not a website page view.
 
 1. `list_snippets()` — identify relevant snippet(s) (e.g. `s_text_image`, `s_text_block`, `s_three_columns`).
-2. `get_snippet(name='<snippet_name>')` — fetch canonical HTML.
-3. Read current arch: `get_page_arch(page_id=<post_view_id>)`.
+2. `get_snippet(key='website.<snippet_name>')` — fetch canonical HTML for each.
+3. Compose the body in memory: snippet blocks in order, outer wrappers preserved, editable placeholders filled.
+4. Write once: `update('blog.post', <post_id>, {content: '<composed HTML>'})`.
 
-   > To get the post's view id: `get_record('blog.post', post_id, fields=['website_id'])`.
-   > Then find the view: `search_records('website.page', [['url', 'like', '<post_slug>']], fields=['view_id'])`.
-   > Or use `list_pages()` filtered by post URL.
-
-4. Inject snippet(s) into the arch preserving outer wrappers. Fill editable placeholders with actual content.
-5. `set_page_arch(page_id=<view_id>, arch='<full arch>')`.
+   To extend an existing body, read it first with `get_record('blog.post', <post_id>, fields=['content'])`
+   and write back the full, extended HTML.
 
 ## Step 5 — Set tags (optional)
 
 ```
-search_records('blog.tag', [['name', 'in', ['<tag1>', '<tag2>']]], fields=['id', 'name'])
+list_records('blog.tag', domain=[['name', 'in', ['<tag1>', '<tag2>']]], fields=['name'])
 update('blog.post', <post_id>, {tag_ids: [[6, 0, [<tag_id_1>, <tag_id_2>]]]})
 ```
 
@@ -142,5 +131,5 @@ To translate this post into other languages: run workflow `translate_blog_post`.
 |---|---|---|
 | Cover image not displayed | `cover_properties` JSON malformed or attachment not public | Verify JSON, set `public: true` on attachment |
 | Post not visible at URL | `is_published` still false | `update('blog.post', id, {is_published: true})` |
-| Snippet body not editable in browser editor | `data-snippet` attr stripped during inject | Re-inject using exact HTML from `get_snippet` |
+| Snippet body not editable in browser editor | `data-snippet` attr stripped during composition | Recompose using exact HTML from `get_snippet` |
 | Arabic/non-ASCII URL is a bare ID (`/blog/ai-4/7`) | `seo_name` not set at creation; `slug()` discards non-ASCII chars and falls back to `str(id)` | Set `seo_name` now: read `website_url` in source lang, extract the slug segment (strip leading path and trailing `-{id}`), write via `update('blog.post', id, {'seo_name': '<slug>'})` |

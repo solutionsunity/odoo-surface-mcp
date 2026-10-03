@@ -69,7 +69,7 @@ fetch_and_upload(source="/path/updated.js",
                  attachment_id=<existing_id>,
                  is_image=false, public=true)
 ```
-- Overwrites `datas` on the same record. URL `/web/content/{id}` stays valid.
+- Overwrites the attachment's content on the same record (any Odoo version). URL `/web/content/{id}` stays valid.
 - **Never** create a new attachment to replace — old arch references break.
 
 ### Reference in arch_db
@@ -170,13 +170,13 @@ no sandbox at all for trusted content.
 ## 5 — Access Restriction
 
 ```python
-# Restrict page to a group
-update(model="ir.ui.view", id=<view_id>,
-       values={"groups_id": [[4, <group_id>]]})
-
 # Find group IDs
-search(model="res.groups",
-       domain=[["full_name", "ilike", "Website Publisher"]])
+list_records(model="res.groups",
+             domain=[["full_name", "ilike", "Website Publisher"]], fields=["full_name"])
+
+# Restrict page to a group — the field is groups_id up to Odoo 18, group_ids from Odoo 19
+update(model="ir.ui.view", record_id=<view_id>,
+       values={"groups_id": [[4, <group_id>]]})
 ```
 
 ---
