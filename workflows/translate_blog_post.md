@@ -6,7 +6,7 @@ applies_to:
   models: [blog.post]
   operations: [translate]
 preconditions:
-  - Target language is installed and active in res.lang (`search_records('res.lang', [['code','=','<lang>'], ['active','=',true]])`).
+  - Target language is installed and active in res.lang (`list_records('res.lang', domain=[['code','=','<lang>']], fields=['code','active'])`).
   - Caller has write access to blog.post (verify via `get_model_actions('blog.post')` if unsure).
 ---
 
@@ -75,7 +75,7 @@ Apply skill `translate_char_field` once per field:
 3. `translation_update('blog.post', id, 'name', translations={'<lang>': '<translated>'})`.
 4. Repeat for `subtitle`.
 
-You may batch both fields in a single mental pass — but the API requires one `translation_update` call per field (the call is field-scoped).
+To push both fields in one call, use the batch form: `translation_update('blog.post', updates=[{record_id, field_name: 'name', translations}, {record_id, field_name: 'subtitle', translations}])`.
 
 ### Step 3 — Decide listing-excerpt strategy
 
@@ -87,10 +87,7 @@ Apply skill `translate_html_field`:
 1. `translation_get('blog.post', id, 'content', langs=['<lang>'])` → returns N text-node terms.
 2. Save to `tmp/blog_post_<id>_content_<lang>.json` with `_meta` block.
 3. Fill every `value` in the JSON. Preserve inline tags exactly. Keep technical proper nouns (`LLM`, `MCP`, `AI Agent`) untranslated when convention requires.
-4. Build the translation map using the **key selection rule** from skill `translate_html_field`:
-   - Term `value` is empty → key = `source` (arch has English text).
-   - Term `value` is non-empty → key = current `value` (arch has existing translation).
-5. `translation_update('blog.post', id, 'content', translations={'<lang>': { key_1: new_value_1, ... }})` — single call, all terms.
+4. `translation_update('blog.post', id, 'content', translations={'<lang>': { source_1: new_value_1, ... }})` — single call, all terms, keyed by `source` as returned.
 
 ### Step 5 — Translate SEO meta (if set on source)
 

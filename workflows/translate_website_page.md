@@ -6,7 +6,7 @@ applies_to:
   models: [website.page, ir.ui.view]
   operations: [translate]
 preconditions:
-  - Target language is installed and active in res.lang (`search_records('res.lang', [['code','=','<lang>'], ['active','=',true]])`).
+  - Target language is installed and active in res.lang (`list_records('res.lang', domain=[['code','=','<lang>']], fields=['code','active'])`).
   - Language is published on the website (`website.language_ids` includes the target lang).
   - Caller has write access to ir.ui.view (same ACL as website.page editor).
 ---
@@ -62,10 +62,7 @@ Apply skill `translate_html_field` (covers `xml_translate`):
 1. `translation_get('ir.ui.view', view_id, 'arch_db', langs=['<lang>'])` → returns N text-node terms.
 2. Save to `tmp/view_<view_id>_arch_db_<lang>.json` with `_meta` block.
 3. Fill every `value`. Preserve QWeb directives (`t-if`, `t-esc`, `t-out`) — they appear as context but must not be translated. Translate only human-visible text nodes.
-4. Build the translation map using the **key selection rule** from skill `translate_html_field`:
-   - Term `value` is empty → key = `source` (arch has English text, English key matches).
-   - Term `value` is non-empty → key = current `value` (arch has existing translation, key must match it).
-5. `translation_update('ir.ui.view', view_id, 'arch_db', translations={'<lang>': {key_1: new_value_1, ...}})` — single call, all terms.
+4. `translation_update('ir.ui.view', view_id, 'arch_db', translations={'<lang>': {source_1: new_value_1, ...}})` — single call, all terms, keyed by `source` as returned.
 
 ### Step 5 — Verify all fields
 
@@ -90,6 +87,5 @@ Visit `/<lang_code>/<page_url>` (e.g. `/ar/about-us`) to confirm the translated 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `/<lang>/page-url` returns 404 | Language not published on website | Add lang to `website.language_ids` |
-| Arch terms appear empty after update | Source key mismatch (QWeb normalized the string) | Re-run `translation_get`; apply key selection rule — `source` for empty terms, `value` for existing translations |
-| Re-translation silently no-ops (`success: true` but value unchanged) | Used `source` as key for a term that already has a translation in the arch | Use current `value` as map key instead of `source` |
+| Arch terms appear empty after update | Keys did not match `source` verbatim (QWeb normalized the string) | Re-run `translation_get`; key each term by its returned `source` |
 | SEO meta not reflected in `<head>` | Field empty in source lang; translation skipped | Confirm source value exists before pushing translation |

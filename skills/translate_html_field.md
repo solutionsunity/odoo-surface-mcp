@@ -9,10 +9,10 @@ applies_to:
   field_types: [html_translate, xml_translate]
   models: ["*"]
   operations: [translate]
-tools_used: [get_fields, translation_get, translation_update, translation_audit]
+tools_used: [translation_get, translation_update, translation_audit]
 preconditions:
   - Target language is installed in res.lang and active.
-  - Field is translatable (translate=html_translate verified via get_fields or model source).
+  - "Field is term-translated — `translation_get` reports `translation_show_source: true`."
 anti_patterns:
   - Passing the entire HTML blob as a single source key (silent no-op).
   - Translating source strings guessed from the rendered page (whitespace, entities, inline tags drift).
@@ -40,26 +40,21 @@ This means:
 
 ## Procedure
 
-### Step 1 — Verify translatability (optional but cheap)
-
-```
-get_fields(model)
-```
-Confirm `<field>.translate` is `"html_translate"` (or callable). If `false`, this skill does not apply.
-
-### Step 2 — Extract registered terms
+### Step 1 — Extract registered terms
 
 ```
 translation_get(model, record_id, field_name, langs=["<lang>"])
 ```
-Returns one entry per registered text node:
+`translation_show_source: true` confirms a term-translated (html/xml) field; `false` means a whole-value
+field — use `translate_char_field`; no entries means the field is not translatable. Returns one entry per
+registered text node:
 ```json
 { "translations": [
   { "lang": "ar_001", "source": "<exact registered string>", "value": "<existing translation or empty>" }
 ] }
 ```
 
-### Step 3 — Persist to a working file (recommended)
+### Step 2 — Persist to a working file (recommended)
 
 Save the response to `tmp/<model>_<id>_<field>.json` shaped as:
 ```json
@@ -76,18 +71,18 @@ Save the response to `tmp/<model>_<id>_<field>.json` shaped as:
 - `source` — **never modify**. Human-readable reference only.
 - `value` — fill in the translation. Leave empty to skip that term.
 
-### Step 4 — Translate each `value`
+### Step 3 — Translate each `value`
 
 - Preserve inline tags exactly (`<strong>…</strong>` stays `<strong>…</strong>` in target language).
 - Preserve `&` entities, smart quotes, and surrounding whitespace if present in source.
 - Keep technical proper nouns untranslated when convention requires (e.g. `LLM`, `MCP`, brand names).
 
-### Step 5 — Push all terms in a single call
+### Step 4 — Push all terms in a single call
 
 ```
 translation_update(
   model, record_id, field_name,
-  translations={ "<lang>": { "<key_1>": "<value_1>", "<key_2>": "<value_2>", ... } }
+  translations={ "<lang>": { "<source_1>": "<value_1>", "<source_2>": "<value_2>", ... } }
 )
 ```
 - Use the **map** form for HTML fields. The string form is for char/text fields and will silently no-op here.
@@ -96,14 +91,11 @@ translation_update(
 - Translating several records (or `name` + `html_content` together)? Use the batch form to do it in one call:
   `translation_update(model, updates=[{record_id, field_name, translations}, ...])`.
 
-> **Critical — key selection rule** (root cause of silent failures):
-> `update_field_translations` walks the **currently stored arch** for the target language and matches map keys against the text nodes it finds there.
-> - If `value` is **empty** (term not yet translated): the stored arch has the English source text → use **`source`** as the map key.
-> - If `value` is **non-empty** (term already has a translation): the stored arch has the translated text → use **`value`** (the current translation) as the map key.
->
-> Using `source` as the key for an already-translated term returns `success: true` but silently no-ops.
+> **Keys are the `source` terms** exactly as `translation_get` returned them — for new and already
+> translated terms alike, on every Odoo version (the surface maps them to what the server expects).
+> Odoo 15.0: source (`en_US`) terms cannot be rewritten term by term — write the field itself with `update`.
 
-### Step 6 — Verify
+### Step 5 — Verify
 
 Prefer `translation_audit` — it checks coverage and source integrity in one call, and accepts arrays so
 you can verify many records/fields at once:
@@ -125,13 +117,12 @@ translation_get(model, record_id, field_name, langs=["<lang>"])
 Every `source` you pushed must now have a non-empty `value`. Any remaining empties indicate:
 - Source-key mismatch (you modified the `source` field).
 - Language not installed.
-- Field-type assumption wrong (re-check `get_fields`).
+- Field-type assumption wrong (re-check `translation_show_source`).
 
 ## Failure modes
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `translation_update` returns `success: true`, frontend still shows source language | Passed full HTML blob as single key, or passed string instead of map | Re-extract via `translation_get`; use map form with correct key per rule below |
-| Some terms translated, others not | Wrong key used for existing vs new translations | Apply key selection rule: use `source` when `value` is empty; use `value` when `value` is non-empty |
-| Re-translation of existing term silently no-ops | Used `source` as key but arch already has translated content — key must match current arch text | Use current `value` from `translation_get` as the map key |
-| All terms translated but page still original language | Language not installed/active in res.lang, or wrong lang code (use `ar_001` not `ar`) | Verify with `search_records('res.lang', [['code','=','<lang>']])` |
+| `translation_update` returns `success: true`, frontend still shows source language | Passed full HTML blob as single key, or passed string instead of map | Re-extract via `translation_get`; use the map form keyed by `source` |
+| Some terms translated, others not | Keys modified or guessed instead of copied from `source` | Re-extract via `translation_get`; key every term by its verbatim `source` |
+| All terms translated but page still original language | Language not installed/active in res.lang, or wrong lang code (use `ar_001` not `ar`) | Verify with `list_records('res.lang', domain=[['code','=','<lang>']], fields=['code','active'])` |

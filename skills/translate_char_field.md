@@ -9,10 +9,10 @@ applies_to:
   field_types: [char, text]
   models: ["*"]
   operations: [translate]
-tools_used: [get_fields, translation_get, translation_update]
+tools_used: [translation_get, translation_update]
 preconditions:
   - Target language is installed in res.lang and active.
-  - Field is translatable (translate=True verified via get_fields or model source).
+  - "Field is whole-value translated — `translation_get` reports `translation_show_source: false`."
 anti_patterns:
   - "Using the map form `{source: value}` for char fields (designed for HTML fields)."
   - "Updating the source-language value via `update` and expecting translations to follow (they don't — translations are stored separately keyed by lang)."
@@ -28,14 +28,7 @@ This means:
 
 ## Procedure
 
-### Step 1 — Verify translatability
-
-```
-get_fields(model)
-```
-Confirm the field's `translate` attribute is `true`. If `false` or `"html_translate"`, this skill does not apply (use `translate_html_field` for the latter).
-
-### Step 2 — (Optional) Read existing translation
+### Step 1 — Read the field's translations
 
 ```
 translation_get(model, record_id, field_name, langs=["<lang>"])
@@ -43,12 +36,13 @@ translation_get(model, record_id, field_name, langs=["<lang>"])
 Returns:
 ```json
 { "translations": [
-  { "lang": "ar_001", "source": "<current source-language value>", "value": "<existing translation or empty>" }
-] }
+  { "lang": "ar_001", "source": "<current source-language value>", "value": "<translation, or the source when none exists>" }
+], "translation_show_source": false }
 ```
-Useful to confirm the source value and check if a translation already exists before overwriting.
+`translation_show_source: false` confirms a whole-value field. `true` means term-translated (html/xml) —
+use `translate_html_field`. No entries means the field is not translatable.
 
-### Step 3 — Push the translation
+### Step 2 — Push the translation
 
 ```
 translation_update(
@@ -59,7 +53,7 @@ translation_update(
 - Use the **string** form for char/text fields. The map form is for HTML fields and may silently no-op.
 - Multiple languages in one call: `{ "ar_001": "...", "fr_FR": "...", "es_ES": "..." }`.
 
-### Step 4 — Verify
+### Step 3 — Verify
 
 ```
 translation_get(model, record_id, field_name, langs=["<lang>"])
