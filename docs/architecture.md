@@ -11,7 +11,7 @@ run in CI (`.github/workflows/check.yml`).
 |---|---|---|---|
 | Tools | `src/tools/` | MCP interface: parameters, descriptions, output shape | compares versions, handles a series-specific Odoo shape |
 | Operations | `src/odoo/` | Odoo operations whose call or result differs across series — one function each, one output shape; web-client semantics (expression evaluation) through vendored code | MCP concerns |
-| Vendor | `src/vendor/` | upstream code used unmodified — the web client's `py_js` and `context.js` — with `UPSTREAM.json` | local changes; imports from anywhere but `src/odoo/` |
+| Vendor | `src/vendor/` | upstream code used unmodified — the web client's `py_js`, `context.js`, `domain.js` and their utilities — with `UPSTREAM.json` | local changes; imports from anywhere but `src/odoo/` |
 | Client | `src/odooClient.ts` | transport, session (uid, target version, the web client's user context) | model-specific logic |
 
 Tools call an operation for anything version-dependent, and `client.execute` directly for calls

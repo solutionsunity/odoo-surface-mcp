@@ -8,7 +8,8 @@
   },
   "local": [
     "py_js/py.d.ts",
-    "context.d.ts"
+    "context.d.ts",
+    "domain.d.ts"
   ],
   "reviewed": {
     "py_js": {
@@ -28,6 +29,42 @@
       "19.0": "a7ea252131fc31476650aaf5e3875e2a32981967",
       "20.0": "a7ea252131fc31476650aaf5e3875e2a32981967",
       "master": "a7ea252131fc31476650aaf5e3875e2a32981967"
+    },
+    "domain.js": {
+      "15.0": "b6495bd51295c513ab0d5c083560ac3a1236bd4f",
+      "16.0": "f9cb34ae2f1ce35afd109d3f681e7eb4e67bc338",
+      "17.0": "9b0f528aa02743372934df8e64d1cc0ad74903b6",
+      "18.0": "020df4ef51917541ce8c26687947ea3cb020a7bd",
+      "19.0": "29df8a3d074a99e1241bbf9173918811b9bfbe78",
+      "20.0": "e0193400120ba76c77312bf595d8f8495240e4f0",
+      "master": "e0193400120ba76c77312bf595d8f8495240e4f0"
+    },
+    "utils/arrays.js": {
+      "15.0": "24c643bc4f63c4ce230969a137bd990a2823dc36",
+      "16.0": "aa7a901678293328978cf18b4daa84756e929853",
+      "17.0": "fd64757d82b5de2c2ae34e8f3586b0d7b90d6401",
+      "18.0": "bf6d6a93d2429c59a8d57efd25b3b8ad7459dea1",
+      "19.0": "bf6d6a93d2429c59a8d57efd25b3b8ad7459dea1",
+      "20.0": "4454758895679f7883e63ec7acbf53fd2f52ff73",
+      "master": "4454758895679f7883e63ec7acbf53fd2f52ff73"
+    },
+    "utils/strings.js": {
+      "15.0": "ad87436a0f0e38292a354f493a42eb5e6a327457",
+      "16.0": "48ef812a635f70571b395f82ffdb2969ce99da9e",
+      "17.0": "daecbbac50bf4998af45c4b48e4d03868e84b5b5",
+      "18.0": "0bc69d757f7c3429c6112aa5aaa1ceb999428189",
+      "19.0": "02c1c06e91e5369e7e74523414682f71cc952b80",
+      "20.0": "d9ebd5bbd77ba21bba643e06a1311bc8c1aa1f29",
+      "master": "d9ebd5bbd77ba21bba643e06a1311bc8c1aa1f29"
+    },
+    "utils/objects.js": {
+      "15.0": "659e7ca9757d786763b5fb2c6affc548894ce1cb",
+      "16.0": "fd88fc1bbad4c0cdb44cf634b6a5621eb7597e0d",
+      "17.0": "f72c4caf13a06f26777f1a47f4966e3f5795a45e",
+      "18.0": "03f7b5f4f79b31c373b0f5a57a7bcced1e5a26b0",
+      "19.0": "93661790af94e5238ef888a6815770ea7d50a3a8",
+      "20.0": "93661790af94e5238ef888a6815770ea7d50a3a8",
+      "master": "93661790af94e5238ef888a6815770ea7d50a3a8"
     }
   }
 }

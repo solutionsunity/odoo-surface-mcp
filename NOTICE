@@ -4,8 +4,9 @@ Copyright 2025-2026 Solutions Unity Co.
 This product includes software developed at Solutions Unity Co. (https://solutionsunity.com).
 
 This product bundles parts of the Odoo web client core — py_js, its Python expression
-interpreter, and context.js (https://github.com/odoo/odoo, addons/web/static/src/core) —
+interpreter, context.js, domain.js and the utilities they use (https://github.com/odoo/odoo,
+addons/web/static/src/core) —
 Copyright Odoo S.A., under the GNU Lesser General Public License v3.0. The unmodified files,
 the licence texts and the upstream reference are in src/vendor/odoo-web-core/. The build copies
-in dist/vendor/ differ only by '.js' appended to relative import specifiers, as Node's ES module
-resolution requires.
+in dist/vendor/ differ only in import specifiers: '@web/core/' aliases resolved to relative paths
+and '.js' appended, as Node's ES module resolution requires.
