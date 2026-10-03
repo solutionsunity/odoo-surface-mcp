@@ -21,13 +21,6 @@ function activeCtx(recordId: number, model: string): Record<string, unknown> {
   return { active_id: recordId, active_ids: [recordId], active_model: model };
 }
 
-function normalise(result: unknown): Record<string, unknown> {
-  if (result === true || result === false || result === null || result === undefined) return { success: true };
-  if (result && typeof result === 'object' && !Array.isArray(result)) return result as Record<string, unknown>;
-  if (typeof result === 'number' || typeof result === 'string') return { result };
-  return { result: String(result) };
-}
-
 async function actionCheck(client: OdooClient, model: string, recordId: number): Promise<Record<string, unknown>> {
   const PROBE = ['state', 'display_name', 'name', 'active'];
   try {
@@ -37,6 +30,15 @@ async function actionCheck(client: OdooClient, model: string, recordId: number):
     if (rows.length) return { success: true, record_after: rows[0] };
   } catch { /* fall through */ }
   return { success: true };
+}
+
+/**
+ * A button's or server action's return as the web client takes it: an action dict is followed,
+ * anything else closes into a reload of the record (20.0/addons/web/static/src/webclient/actions/action_plugin.js:1634).
+ */
+async function actionOutcome(client: OdooClient, model: string, recordId: number, result: unknown): Promise<Record<string, unknown>> {
+  if (result && typeof result === 'object' && !Array.isArray(result)) return result as Record<string, unknown>;
+  return actionCheck(client, model, recordId);
 }
 
 export function register(server: McpServer, client: OdooClient, cache: Cache): void {
@@ -158,10 +160,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           const result = await client.httpCall('/web/dataset/call_button', {
             model, method: btn.name, args: [[record_id]], kwargs: {},
           });
-          if (result === false || result === null || result === undefined) {
-            return ok(await actionCheck(client, model, record_id));
-          }
-          return ok(normalise(result));
+          return ok(await actionOutcome(client, model, record_id, result));
         }
 
         // 2. Server actions
@@ -170,10 +169,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           const result = await client.execute('ir.actions.server', 'run', [[sa.id]], {
             context: activeCtx(record_id, model),
           });
-          if (result === true || result === false || result === null || result === undefined) {
-            return ok(await actionCheck(client, model, record_id));
-          }
-          return ok(normalise(result));
+          return ok(await actionOutcome(client, model, record_id, result));
         }
 
         return ok({
