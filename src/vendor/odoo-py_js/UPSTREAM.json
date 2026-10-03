@@ -1,0 +1,15 @@
+{
+  "repository": "odoo/odoo",
+  "path": "addons/web/static/src/core/py_js",
+  "license": "LGPL-3.0-only",
+  "vendored": { "branch": "20.0", "commit": "4a8ad40647c6f0b02a42ef10e1ffcbb5111fcbd7" },
+  "reviewed": {
+    "15.0": "a44d51b779bed1a04a46f7a08da3a0fd5581e4d5",
+    "16.0": "76f41c58abb4e2ff22b0ecead583a9f0665b265a",
+    "17.0": "f21308e85fb8643a64c6be9729358f9c53d559d9",
+    "18.0": "a1175f761b79bbde7667a12d8763ea8c92fb2cf7",
+    "19.0": "8619521c2d64b4ebeb1cc6e9378a9a4b2d71adb7",
+    "20.0": "4a8ad40647c6f0b02a42ef10e1ffcbb5111fcbd7",
+    "master": "4a8ad40647c6f0b02a42ef10e1ffcbb5111fcbd7"
+  }
+}

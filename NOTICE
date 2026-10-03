@@ -2,3 +2,8 @@ odoo-surface-mcp
 Copyright 2025-2026 Solutions Unity Co.
 
 This product includes software developed at Solutions Unity Co. (https://solutionsunity.com).
+
+This product bundles py_js, the Python expression interpreter of the Odoo web client
+(https://github.com/odoo/odoo, addons/web/static/src/core/py_js), Copyright Odoo S.A.,
+under the GNU Lesser General Public License v3.0. The unmodified files, the licence texts and
+the upstream reference are in src/vendor/odoo-py_js/.
