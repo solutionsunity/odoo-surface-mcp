@@ -3,6 +3,8 @@ name: Publish
 # One tag, one release: npm, GitHub Release, MCP Registry. Cut it with
 #   npm version <x.y.z> && git push --follow-tags
 # (scripts/version.mjs stamps server.json in the version commit; the first step checks it).
+# Every publish step skips what is already published, so a partial release is finished by
+# running the workflow again (Actions → Publish → Run workflow) on main for the released version.
 #
 # npm — OIDC Trusted Publishing, no npm token required.
 #
@@ -42,6 +44,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -56,7 +59,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Tag, package.json and server.json agree
-        run: node scripts/version.mjs --check
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "V=$V" >> "$GITHUB_ENV"
+          echo "PKG=$(node -p "require('./package.json').name")" >> "$GITHUB_ENV"
+          # On a tag push, the pushed tag itself must match; on a manual run, the release tag must exist.
+          if [ "$GITHUB_EVENT_NAME" = push ]; then node scripts/version.mjs --check
+          else GITHUB_REF_NAME="v$V" node scripts/version.mjs --check
+               gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$V" --silent; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -83,10 +95,12 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: |
+          if npm view "$PKG@$V" version >/dev/null 2>&1; then echo "npm: $PKG@$V already published"
+          else npm publish --access public; fi
 
       - name: GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        run: gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" --verify-tag --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -100,5 +114,12 @@ jobs:
 
       - name: Publish to MCP Registry
         run: |
+          NAME=$(node -p "require('./server.json').name")
+          if curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=${NAME#*/}" \
+               | jq -e --arg n "$NAME" --arg v "$V" '.servers[]?.server | select(.name == $n and .version == $v)' >/dev/null; then
+            echo "registry: $NAME $V already published"; exit 0
+          fi
+          # The registry validates the npm package; a fresh npm release takes minutes to be served.
+          for i in $(seq 1 30); do npm view "$PKG@$V" version >/dev/null 2>&1 && break; sleep 20; done
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
