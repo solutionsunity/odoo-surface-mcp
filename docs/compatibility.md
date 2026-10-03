@@ -67,6 +67,7 @@ the path and signature are unchanged.
 | `writeAttachmentContent` (`src/odoo/binary.ts`) | `fetch_and_upload` (replace) | ok | ok | ok | ok | ok | ok |
 | `website.page.search_read` | `list_pages` | ok | ok | ok | ok | ok | D12 |
 | `website.page.read`, `.write` (`is_published`) | `get_page_arch`, `set_page_visibility` | ok | ok | ok | ok | ok | ok |
+| `website.new_page` (website in context) | `create_page` | ok | ok | ok | ok | ok | ok |
 | `mail.activity.type.search_read` | `schedule_activity` | ok | ok | ok | ok | ok | ok |
 | `mail.activity.create` (`user_id` explicit) | `schedule_activity` | ok | ok | ok | ok | ok | ok |
 
@@ -97,6 +98,7 @@ until handled and the row reads `ok` across the supported range.
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
 | D15 | 16.0, 17.0 | html/xml term updates keyed by the language's current term | `updateFieldTranslations` |
+| D16 | 20.0 | `new_page` makes the URL unique only within the context's website | call form |
 | X1 | all | Divergences fail silently | fixed |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | fixed |
 
@@ -194,6 +196,13 @@ field's current value in `lang` (`16.0/odoo/models.py:3155`, `17.0/odoo/models.p
 matches source (`en_US`) terms (`18.0/odoo/models.py:3914`). Keyed by source terms — the tool's
 contract — an already translated term was silently left unchanged on 16.0/17.0.
 `updateFieldTranslations` rekeys source terms to each language's current term there.
+
+**D16 — 20.0: `website.new_page` URL uniqueness reads the website from the context only.**
+`get_unique_path` takes `website_id` (or `host_id`) from the context, else `False`, and checks pages of
+that website (`20.0/addons/website/models/website.py:1473`); up to 18.0 it falls back to the current
+website. A browser request always carries the website; over RPC without it, 20.0 created a second page
+with a taken URL. `create_page` always passes the website in the context — which also makes the new
+view website-specific on 15.0, as in the browser.
 
 **X1 — divergences fail silently.** Several call sites catch the error and return a plausible
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,

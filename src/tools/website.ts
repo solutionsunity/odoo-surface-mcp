@@ -36,6 +36,37 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
   );
 
   server.registerTool(
+    'create_page',
+    {
+      description:
+        GUIDANCE_HINT +
+        'Create a website page as the website editor\'s "New → Page" does: a view from the default ' +
+        'page template plus the page, with a URL made unique from the name. The page is created ' +
+        'unpublished (publish with set_page_visibility). add_menu: also add it to the main menu. ' +
+        'website_id: target website (default: the current one). ' +
+        'Returns {page_id, view_id, url, menu_id?} — fill it with get_page_arch / set_page_arch.',
+      inputSchema: {
+        name: z.string(),
+        add_menu: z.boolean().default(false),
+        website_id: z.number().int().optional(),
+      },
+    },
+    async ({ name, add_menu, website_id }) => {
+      try {
+        // The website goes in the context, as a browser request carries it: 20.0 makes the URL
+        // unique only against the context's website (20.0/addons/website/models/website.py:1473).
+        const website = website_id ?? (await client.execute('website', 'search', [[]], { limit: 1 }) as number[])[0];
+        if (!website) return ok({ error: 'No website found.' });
+        const result = await client.execute('website', 'new_page', [], {
+          name, add_menu, page_values: { is_published: false }, context: { website_id: website },
+        }) as { url: string; view_id: number; page_id: number; menu_id?: number };
+        return ok({ page_id: result.page_id, view_id: result.view_id, url: result.url,
+          ...(result.menu_id && { menu_id: result.menu_id }) });
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  server.registerTool(
     'get_page_arch',
     {
       description:

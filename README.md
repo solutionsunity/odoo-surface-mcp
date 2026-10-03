@@ -128,7 +128,7 @@ Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `i
 | Discovery | `get_models`, `get_model_actions`, `get_model_interface` |
 | Planning | `get_available_actions` |
 | Supporting | `list_records`, `get_record`, `search_records`, `read_group`, `get_fields`, `get_defaults`, `get_filters`, `list_pages`, `get_page_arch`, `list_snippets`, `get_snippet`, `list_attachments`, `download_binary`, `fetch_and_upload`, `translation_get`, `translation_update`, `translation_audit` |
-| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity`, `set_page_arch`, `set_page_visibility`, `upload_binary` |
+| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity`, `create_page`, `set_page_arch`, `set_page_visibility`, `upload_binary` |
 
 ## Architecture
 
