@@ -106,6 +106,25 @@ const LATIN_RE = /[A-Za-z]/;
 
 function toArray<T>(v: T | T[]): T[] { return Array.isArray(v) ? v : [v]; }
 
+type Item = { record_id: number; field_name: string };
+
+/** Every record × field pair of a batch call. */
+function pairs(ids: number | number[], fields: string | string[]): Item[] {
+  return toArray(ids).flatMap(record_id => toArray(fields).map(field_name => ({ record_id, field_name })));
+}
+
+/** fn per item, each result tagged with its item; a failure is that item's error, not the batch's. */
+async function perItem<T extends Item>(
+  items: T[], fn: (item: T) => Promise<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const results: Array<Record<string, unknown>> = [];
+  for (const item of items) {
+    const tag = { record_id: item.record_id, field_name: item.field_name };
+    try { results.push({ ...tag, ...await fn(item) }); } catch (e) { results.push({ ...tag, error: String(e) }); }
+  }
+  return results;
+}
+
 /** Group flat translation rows by source term, preserving first-seen order. */
 function groupTerms(rows: TermRow[]): { order: string[]; byTerm: Map<string, Map<string, string>> } {
   const byTerm = new Map<string, Map<string, string>>();
@@ -584,20 +603,11 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, field_name, langs }) => {
       try {
-        const ids = toArray(record_id);
-        const fields = toArray(field_name);
         const single = !Array.isArray(record_id) && !Array.isArray(field_name);
-        const results: Array<Record<string, unknown>> = [];
-        for (const id of ids) {
-          for (const f of fields) {
-            try {
-              const { rows, meta } = await fieldTranslations(client, model, id, f, langs);
-              results.push({ record_id: id, field_name: f, translations: rows, ...meta });
-            } catch (e) {
-              results.push({ record_id: id, field_name: f, error: String(e) });
-            }
-          }
-        }
+        const results = await perItem(pairs(record_id, field_name), async item => {
+          const { rows, meta } = await fieldTranslations(client, model, item.record_id, item.field_name, langs);
+          return { translations: rows, ...meta };
+        });
         if (single) {
           const r = results[0];
           if (r['error']) return ok({ error: r['error'] });
@@ -638,37 +648,18 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, field_name, translations, updates }) => {
       try {
+        const write = async (u: Item & { translations: Record<string, unknown> }) => {
+          await updateFieldTranslations(client, model, u.record_id, u.field_name, u.translations);
+          return { success: true };
+        };
         // Form (2): explicit batch of heterogeneous updates.
-        if (updates?.length) {
-          const results: Array<Record<string, unknown>> = [];
-          for (const u of updates) {
-            try {
-              await updateFieldTranslations(client, model, u.record_id, u.field_name, u.translations);
-              results.push({ record_id: u.record_id, field_name: u.field_name, success: true });
-            } catch (e) {
-              results.push({ record_id: u.record_id, field_name: u.field_name, error: String(e) });
-            }
-          }
-          return ok({ results });
-        }
+        if (updates?.length) return ok({ results: await perItem(updates, write) });
         // Form (1): single record_id, field_name and translations (same map applied to all ids).
         if (record_id === undefined || !field_name || !translations) {
           return ok({ error: 'Provide either updates[] or (record_id, field_name, translations).' });
         }
-        if (!Array.isArray(record_id)) {
-          await updateFieldTranslations(client, model, record_id, field_name, translations);
-          return ok({ success: true });
-        }
-        const results: Array<Record<string, unknown>> = [];
-        for (const id of record_id) {
-          try {
-            await updateFieldTranslations(client, model, id, field_name, translations);
-            results.push({ record_id: id, field_name, success: true });
-          } catch (e) {
-            results.push({ record_id: id, field_name, error: String(e) });
-          }
-        }
-        return ok({ results });
+        if (!Array.isArray(record_id)) return ok(await write({ record_id, field_name, translations }));
+        return ok({ results: await perItem(record_id.map(id => ({ record_id: id, field_name, translations })), write) });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
@@ -698,75 +689,64 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, field_name, base_lang, target_langs, max_list }) => {
       try {
-        const ids = toArray(record_id);
-        const fields = toArray(field_name);
         const base = base_lang ?? 'en_US';
         const cap = max_list ?? 50;
         const baseIsEnglish = base.toLowerCase().startsWith('en');
         const langsFilter = target_langs?.length ? [base, ...target_langs] : undefined;
-        const results: Array<Record<string, unknown>> = [];
         let totalMissing = 0, totalSuspect = 0, totalNonemptyBase = 0;
-        for (const id of ids) {
-          for (const f of fields) {
-            try {
-              const { rows, meta } = await fieldTranslations(client, model, id, f, langsFilter);
-              const { order, byTerm } = groupTerms(rows);
-              const presentLangs = new Set(rows.map(r => r.lang));
-              const targets = target_langs?.length
-                ? target_langs
-                : [...presentLangs].filter(l => l !== base);
+        const results = await perItem(pairs(record_id, field_name), async item => {
+          const { rows, meta } = await fieldTranslations(client, model, item.record_id, item.field_name, langsFilter);
+          const { order, byTerm } = groupTerms(rows);
+          const presentLangs = new Set(rows.map(r => r.lang));
+          const targets = target_langs?.length
+            ? target_langs
+            : [...presentLangs].filter(l => l !== base);
 
-              const langReport: Record<string, unknown> = {};
-              for (const tl of targets) {
-                const missing: string[] = [];
-                let translated = 0;
-                for (const src of order) {
-                  const v = byTerm.get(src)?.get(tl) ?? '';
-                  if (v.trim()) translated++; else missing.push(src);
-                }
-                totalMissing += missing.length;
-                langReport[tl] = {
-                  translated,
-                  missing_count: missing.length,
-                  missing: missing.slice(0, cap),
-                  ...(missing.length > cap ? { missing_truncated: true } : {}),
-                };
-              }
-
-              const suspect: string[] = [];
-              const nonemptyBase: string[] = [];
-              for (const src of order) {
-                if (baseIsEnglish && ARABIC_RE.test(src) && !LATIN_RE.test(src)) suspect.push(src);
-                if ((byTerm.get(src)?.get(base) ?? '').trim()) nonemptyBase.push(src);
-              }
-              totalSuspect += suspect.length;
-              totalNonemptyBase += nonemptyBase.length;
-
-              results.push({
-                record_id: id,
-                field_name: f,
-                translation_type: meta['translation_type'],
-                translation_show_source: meta['translation_show_source'],
-                total_terms: order.length,
-                base_lang: base,
-                langs: langReport,
-                suspect_source: suspect.slice(0, cap),
-                ...(suspect.length > cap ? { suspect_source_truncated: true } : {}),
-                nonempty_base: nonemptyBase.slice(0, cap),
-                ...(nonemptyBase.length > cap ? { nonempty_base_truncated: true } : {}),
-              });
-            } catch (e) {
-              results.push({ record_id: id, field_name: f, error: String(e) });
+          const langReport: Record<string, unknown> = {};
+          for (const tl of targets) {
+            const missing: string[] = [];
+            let translated = 0;
+            for (const src of order) {
+              const v = byTerm.get(src)?.get(tl) ?? '';
+              if (v.trim()) translated++; else missing.push(src);
             }
+            totalMissing += missing.length;
+            langReport[tl] = {
+              translated,
+              missing_count: missing.length,
+              missing: missing.slice(0, cap),
+              ...(missing.length > cap ? { missing_truncated: true } : {}),
+            };
           }
-        }
+
+          const suspect: string[] = [];
+          const nonemptyBase: string[] = [];
+          for (const src of order) {
+            if (baseIsEnglish && ARABIC_RE.test(src) && !LATIN_RE.test(src)) suspect.push(src);
+            if ((byTerm.get(src)?.get(base) ?? '').trim()) nonemptyBase.push(src);
+          }
+          totalSuspect += suspect.length;
+          totalNonemptyBase += nonemptyBase.length;
+
+          return {
+            translation_type: meta['translation_type'],
+            translation_show_source: meta['translation_show_source'],
+            total_terms: order.length,
+            base_lang: base,
+            langs: langReport,
+            suspect_source: suspect.slice(0, cap),
+            ...(suspect.length > cap ? { suspect_source_truncated: true } : {}),
+            nonempty_base: nonemptyBase.slice(0, cap),
+            ...(nonemptyBase.length > cap ? { nonempty_base_truncated: true } : {}),
+          };
+        });
         const passed = totalMissing === 0 && totalSuspect === 0
           && results.every(r => !r['error']);
         return ok({
           passed,
           summary: {
-            records: ids.length,
-            fields: fields.length,
+            records: toArray(record_id).length,
+            fields: toArray(field_name).length,
             checks: results.length,
             total_missing: totalMissing,
             total_suspect_source: totalSuspect,
