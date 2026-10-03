@@ -2,7 +2,14 @@
   "repository": "odoo/odoo",
   "root": "addons/web/static/src/core",
   "license": "LGPL-3.0-only",
-  "vendored": { "branch": "20.0", "commit": "0c02024dc12e147ec7347b6eb9dc0a63d40c4056" },
+  "vendored": {
+    "branch": "20.0",
+    "commit": "0c02024dc12e147ec7347b6eb9dc0a63d40c4056"
+  },
+  "local": [
+    "py_js/py.d.ts",
+    "context.d.ts"
+  ],
   "reviewed": {
     "py_js": {
       "15.0": "a44d51b779bed1a04a46f7a08da3a0fd5581e4d5",

@@ -8,7 +8,7 @@
     "odoo-surface-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/build-vendor.mjs",
     "start": "node dist/index.js",
     "dev": "node --loader ts-node/esm src/index.ts",
     "check:arch": "node scripts/check-arch.mjs"
