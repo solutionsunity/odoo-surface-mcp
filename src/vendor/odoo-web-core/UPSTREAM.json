@@ -1,0 +1,26 @@
+{
+  "repository": "odoo/odoo",
+  "root": "addons/web/static/src/core",
+  "license": "LGPL-3.0-only",
+  "vendored": { "branch": "20.0", "commit": "0c02024dc12e147ec7347b6eb9dc0a63d40c4056" },
+  "reviewed": {
+    "py_js": {
+      "15.0": "a44d51b779bed1a04a46f7a08da3a0fd5581e4d5",
+      "16.0": "76f41c58abb4e2ff22b0ecead583a9f0665b265a",
+      "17.0": "f21308e85fb8643a64c6be9729358f9c53d559d9",
+      "18.0": "a1175f761b79bbde7667a12d8763ea8c92fb2cf7",
+      "19.0": "8619521c2d64b4ebeb1cc6e9378a9a4b2d71adb7",
+      "20.0": "4a8ad40647c6f0b02a42ef10e1ffcbb5111fcbd7",
+      "master": "4a8ad40647c6f0b02a42ef10e1ffcbb5111fcbd7"
+    },
+    "context.js": {
+      "15.0": "7354d1686915ec21437fc677f15a6c5409106492",
+      "16.0": "cc3403ad475a383e6ccadec44b7554d3156839c2",
+      "17.0": "7dc695833466b9ef8aac24d76554412a6a8f5879",
+      "18.0": "dcb92cba1d47ce2acd931444b814f7dafb2df7eb",
+      "19.0": "a7ea252131fc31476650aaf5e3875e2a32981967",
+      "20.0": "a7ea252131fc31476650aaf5e3875e2a32981967",
+      "master": "a7ea252131fc31476650aaf5e3875e2a32981967"
+    }
+  }
+}

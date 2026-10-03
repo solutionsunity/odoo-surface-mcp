@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Upstream watch for vendored code. Reads src/vendor/*/UPSTREAM.json; for every watched branch,
-// compares the latest upstream commit touching the vendored path with the reviewed one, and
+// Upstream watch for vendored code. Reads src/vendor/*/UPSTREAM.json; for every vendored path and
+// watched branch, compares the latest upstream commit touching it with the reviewed one, and
 // checks whether the next stable series branch exists. Any finding opens one issue labelled
 // with the vendor's label, unless one is already open.
 //
@@ -31,15 +31,17 @@ for (const dir of readdirSync('src/vendor')) {
   const label = `upstream-${dir.replace(/^odoo-/, '')}`;
   const findings = [];
 
-  for (const [branch, reviewed] of Object.entries(up.reviewed)) {
-    const sha = await latest(up.repository, branch, up.path);
-    if (!sha) findings.push(`- \`${branch}\`: branch or path not found upstream`);
-    else if (sha !== reviewed) {
-      findings.push(`- \`${branch}\`: ${reviewed.slice(0, 8)} → ${sha.slice(0, 8)} — https://github.com/${up.repository}/compare/${reviewed}...${sha}`);
+  for (const [path, branches] of Object.entries(up.reviewed)) {
+    for (const [branch, reviewed] of Object.entries(branches)) {
+      const sha = await latest(up.repository, branch, `${up.root}/${path}`);
+      if (!sha) findings.push(`- \`${path}\` on \`${branch}\`: branch or path not found upstream`);
+      else if (sha !== reviewed) {
+        findings.push(`- \`${path}\` on \`${branch}\`: ${reviewed.slice(0, 8)} → ${sha.slice(0, 8)} — https://github.com/${up.repository}/compare/${reviewed}...${sha}`);
+      }
     }
   }
 
-  const series = Object.keys(up.reviewed).filter(b => /^\d+\.0$/.test(b)).map(Number);
+  const series = Object.values(up.reviewed).flatMap(Object.keys).filter(b => /^\d+\.0$/.test(b)).map(Number);
   const next = `${Math.max(...series) + 1}.0`;
   if (await gh(`/repos/${up.repository}/branches/${next}`)) {
     findings.push(`- new series \`${next}\` exists upstream — not watched yet`);
@@ -49,7 +51,7 @@ for (const dir of readdirSync('src/vendor')) {
 
   const title = `Upstream ${dir} changed`;
   const body = [
-    `\`${up.repository}\` \`${up.path}\` moved beyond the reviewed state in \`${file}\`:`, '',
+    `\`${up.repository}\` \`${up.root}\` moved beyond the reviewed state in \`${file}\`:`, '',
     ...findings, '',
     `Vendored copy: \`${up.vendored.branch}\` @ ${up.vendored.commit.slice(0, 8)}. Review the changes; update the copy if`,
     'behaviour changed, then record the reviewed commits (and any new series) in UPSTREAM.json.',
