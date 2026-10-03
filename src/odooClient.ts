@@ -193,20 +193,10 @@ export class OdooClient {
     args: unknown[] = [],
     kwargs: Record<string, unknown> = {},
   ): Promise<unknown> {
-    await this.session();
-    const kw = { model, method, args, kwargs };
-    try {
-      return await this.rpc('/web/dataset/call_kw', kw);
-    } catch (exc) {
-      if (isSessionExpired(exc)) {
-        this._session = null;
-        await this.session();
-        return await this.rpc('/web/dataset/call_kw', kw);
-      }
-      throw exc;
-    }
+    return this.httpCall('/web/dataset/call_kw', { model, method, args, kwargs });
   }
 
+  /** A JSON-RPC route in the user's session; an expired session is renewed once. */
   async httpCall(route: string, params: Record<string, unknown> = {}): Promise<unknown> {
     await this.session();
     try {
