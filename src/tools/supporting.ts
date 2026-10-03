@@ -15,7 +15,7 @@ import { evalAction } from '../odoo/expr.js';
 import { TermRow, fieldTranslations, updateFieldTranslations } from '../odoo/translations.js';
 import { readGroup } from '../odoo/group.js';
 import { Cache } from '../cache.js';
-import { xmlParser, FXPNode, iterNodes, ok, outputPath, GUIDANCE_HINT } from '../utils.js';
+import { xmlParser, FXPNode, iterNodes, viewNodes, ok, outputPath, GUIDANCE_HINT } from '../utils.js';
 
 // ─── XML helpers ────────────────────────────────────────────────────────────
 
@@ -63,10 +63,10 @@ export async function viewFieldNames(
   const cached = cache.get(key);
   if (cached !== undefined) return cached as string[];
 
-  // Arch order, restricted to the model's own fields (sub-view fields belong to other models).
+  // Arch order, restricted to the model's own fields.
   const { arch, fields } = await views(client, model, viewType);
   const names = new Set<string>();
-  for (const node of iterNodes(parseArch(arch), 'field')) {
+  for (const node of viewNodes(parseArch(arch), 'field')) {
     const name = (node[':@'] as Record<string, string> | undefined)?.['name'];
     if (name && name in fields) names.add(name);
   }

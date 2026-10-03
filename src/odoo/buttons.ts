@@ -1,5 +1,5 @@
 import { OdooClient } from '../odooClient.js';
-import { xmlParser, FXPNode, iterNodes } from '../utils.js';
+import { xmlParser, FXPNode, viewNodes } from '../utils.js';
 import { since } from './since.js';
 import { views } from './views.js';
 import { Condition, recordEvalContext } from './expr.js';
@@ -16,7 +16,7 @@ export interface Button {
 
 function buttons(arch: string, invisible: (attrs: Record<string, string>) => Condition): Button[] {
   const out: Button[] = [];
-  for (const node of iterNodes(xmlParser.parse(arch) as FXPNode[], 'button')) {
+  for (const node of viewNodes(xmlParser.parse(arch) as FXPNode[], 'button')) {
     const attrs = node[':@'] as Record<string, string> | undefined;
     if (!attrs || !BUTTON_TYPES.has(attrs['type'])) continue;
     out.push({ name: attrs['name'], label: attrs['string'] ?? attrs['name'], type: attrs['type'], invisible: invisible(attrs) });

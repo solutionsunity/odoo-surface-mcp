@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { Cache } from '../cache.js';
-import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
+import { xmlParser, FXPNode, viewNodes, ok } from '../utils.js';
 
 export function register(server: McpServer, client: OdooClient, cache: Cache): void {
 
@@ -64,7 +64,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         try {
           const { arch } = await views(client, model, 'form');
           const nodes = xmlParser.parse(arch) as FXPNode[];
-          for (const node of iterNodes(nodes, 'button')) {
+          for (const node of viewNodes(nodes, 'button')) {
             const attrs = node[':@'] as Record<string, string> | undefined;
             if (!attrs) continue;
             const btnType = attrs['type'];
