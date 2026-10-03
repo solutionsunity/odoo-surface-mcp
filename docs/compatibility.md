@@ -38,7 +38,7 @@ the path and signature are unchanged.
 | `read` | `get_record`, `create`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
 | `readBinary` (`src/odoo/binary.ts`) | `download_binary` | ok | ok | ok | ok | ok | ok |
 | `write` | `update`, `archive`, `upload_binary` | ok | ok | ok | ok | ok | ok |
-| `search_read`, `search_count` | `list_records`, `search_records` | ok | ok | ok | ok | ok | ok |
+| `search_read`, `search_count` | `list_records` | ok | ok | ok | ok | ok | ok |
 | `name_search` (domain positional) | `search_records` | ok | ok | ok | ok | ok | ok |
 | `fields_get` | `get_fields`, `get_defaults`, `update`, `archive`, `inspect_fields`, `odooClient.validFieldNames()` | ok | ok | ok | ok | ok | ok |
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |

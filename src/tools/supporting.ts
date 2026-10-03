@@ -126,13 +126,19 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'list_records',
     {
       description:
-        'Return a paginated list of records visible in the list view for a model. ' +
-        'Pass action_id to scope results to the action\'s domain (e.g. only draft orders). ' +
+        'Return a paginated list of records — as the list view or the Export dialog would show them. ' +
+        'domain: Odoo domain, e.g. [["state","=","draft"]]; ANDed with the action\'s domain when action_id is given. ' +
+        'fields: field names to return (any readable field; relational ones as [id, display_name]); ' +
+        'default: the list view\'s columns. ' +
         'Pass context to control read behaviour — e.g. {lang: "fr_FR"} returns translated field values, ' +
         '{active_test: false} includes archived records. ' +
-        'Returns {total, offset, limit, records[]} with the columns from the list view.',
+        'order: e.g. "date desc, id"; ordering by a many2one follows the related model\'s own order ' +
+        '(e.g. order_id on sale.order = date_order desc, id desc), which can look like order being ignored. ' +
+        'Returns {total, offset, limit, records[]}.',
       inputSchema: {
         model: z.string(),
+        domain: z.array(z.unknown()).optional(),
+        fields: z.array(z.string()).optional(),
         action_id: z.number().int().optional(),
         limit: z.number().int().default(40),
         offset: z.number().int().default(0),
@@ -140,11 +146,13 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         context: z.record(z.unknown()).optional(),
       },
     },
-    async ({ model, action_id, limit, offset, order, context }) => {
+    async ({ model, domain: userDomain, fields: reqFields, action_id, limit, offset, order, context }) => {
       try {
-        const [domain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
+        const [actionDomain, actionCtx] = await actionDomainContext(client, cache, action_id, context ?? {});
+        // Top-level terms of a domain are implicitly ANDed, so concatenation ANDs the two.
+        const domain = [...actionDomain, ...(userDomain ?? [])];
         const mergedCtx = { ...actionCtx, ...(context ?? {}) };
-        let fields = await viewFieldNames(client, cache, model, 'list');
+        let fields = reqFields?.length ? reqFields : await viewFieldNames(client, cache, model, 'list');
         if (!fields.length) fields = ['display_name'];
         const kwargs: Record<string, unknown> = { fields, limit, offset };
         if (order) kwargs['order'] = order;
@@ -190,16 +198,15 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'search_records',
     {
       description:
-        'Search for records by name or domain. ' +
-        'query: free-text name search (optional). ' +
-        'domain: Odoo domain e.g. [["state","=","draft"]] (optional). ' +
-        'action_id: scope search to the action\'s domain. ' +
+        'Find records by name — "which record is called X" — with the model\'s own name matching ' +
+        '(display name, plus per-model keys such as reference, email or code). ' +
+        'domain / action_id narrow the search. For filtering by field values use list_records. ' +
         'Pass context for search-time behaviour — e.g. {active_test: false} finds archived records, ' +
         '{lang: "fr_FR"} matches and returns display_name in that language. ' +
         'Returns [{id, display_name}] up to limit.',
       inputSchema: {
         model: z.string(),
-        query: z.string().optional(),
+        query: z.string(),
         domain: z.array(z.unknown()).optional(),
         action_id: z.number().int().optional(),
         limit: z.number().int().default(20),
@@ -212,14 +219,9 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         const mergedCtx = { ...actionCtx, ...(context ?? {}) };
         const combined = [...actionDomain, ...(domain ?? [])];
         const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};
-        if (query) {
-          // Positional: the domain parameter is `args` up to 18.0, `domain` from 19.0.
-          const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit], ctxKwarg) as Array<[number, string]>;
-          return ok(results.map(r => ({ id: r[0], display_name: r[1] })));
-        }
-        return ok(await client.execute(model, 'search_read', [combined], {
-          fields: ['id', 'display_name'], limit, ...ctxKwarg,
-        }));
+        // Positional: the domain parameter is `args` up to 18.0, `domain` from 19.0.
+        const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit], ctxKwarg) as Array<[number, string]>;
+        return ok(results.map(r => ({ id: r[0], display_name: r[1] })));
       } catch (e) { return ok([{ error: String(e) }]); }
     },
   );
