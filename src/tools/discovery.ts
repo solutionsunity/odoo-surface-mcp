@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { hasAccess } from '../odoo/access.js';
+import { formButtons } from '../odoo/buttons.js';
 import { Cache } from '../cache.js';
-import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
+import { ok } from '../utils.js';
 
-const BUTTON_TYPES = new Set(['object', 'action']);
 const RELATIONAL_TYPES = new Set(['many2one', 'many2many', 'one2many']);
 
 // ─── Internals ────────────────────────────────────────────────────────────────
@@ -99,22 +99,9 @@ export async function collectModelActions(client: OdooClient, model: string): Pr
     { fields: ['id', 'name', 'binding_view_types', 'report_type'] },
   ) as Array<{ id: number; name: string; binding_view_types: string; report_type: string }>;
 
-  let viewButtons: unknown[] = [];
+  let viewButtons: unknown[];
   try {
-    const { arch } = await views(client, model, 'form');
-    const nodes = xmlParser.parse(arch) as FXPNode[];
-    for (const node of iterNodes(nodes, 'button')) {
-      const attrs = node[':@'] as Record<string, string> | undefined;
-      if (!attrs) continue;
-      const btnType = attrs['type'] ?? '';
-      if (!BUTTON_TYPES.has(btnType)) continue;
-      viewButtons.push({
-        name: attrs['name'],
-        label: attrs['string'] ?? attrs['name'],
-        type: btnType,
-        invisible: attrs['invisible'],
-      });
-    }
+    viewButtons = await formButtons(client, model);
   } catch (e) {
     viewButtons = [{ error: String(e) }];
   }
@@ -152,7 +139,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     {
       description:
         'Return all actions available on a model: server actions (Action menu), ' +
-        'report actions (Print menu), and form-view buttons (type=object/action). ' +
+        'report actions (Print menu), and form-view buttons (type=object/action) with their ' +
+        'invisible condition (Python expression, or a domain on Odoo 15/16). ' +
         'Also returns CRUD access flags for the current user.',
       inputSchema: {
         model: z.string(),

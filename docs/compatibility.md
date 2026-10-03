@@ -43,7 +43,7 @@ the path and signature are unchanged.
 | `fields_get` | `get_fields`, `get_defaults`, `update`, `archive`, `inspect_fields`, `odooClient.validFieldNames()` | ok | ok | ok | ok | ok | ok |
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |
 | `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
-| button visibility (`invisible` in arch) | `get_available_actions` | D3 | D3 | ok | ok | ok | ok |
+| `formButtons` + `holds` (`src/odoo/buttons.ts`, `expr.ts`) | `get_model_actions`, `get_available_actions`, `execute_action` | ok | ok | ok | ok | ok | ok |
 | `hasAccess` (`src/odoo/access.ts`) | `get_model_actions`, `get_model_interface`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
 | `get_field_translations` | `translation_get`, `translation_audit` | D2 | ok | ok | ok | ok | ok |
 | `update_field_translations` | `translation_update` | D2 | ok | ok | ok | ok | ok |
@@ -83,7 +83,7 @@ until handled and the row reads `ok` across the supported range.
 |---|---|---|---|
 | D1 | 15.0 | No `get_views` | `views` |
 | D2 | 15.0 | No field-translation API | open |
-| D3 | 15.0, 16.0 | Conditional visibility is a domain, not an expression | open |
+| D3 | 15.0, 16.0 | Conditional visibility is a domain, not an expression | `formButtons` |
 | D4 | 18.0+ | `get_views` wraps model fields | `views` |
 | D5 | 18.0+ | View type `tree` renamed `list` | `views` |
 | D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | `hasAccess` |
@@ -121,6 +121,11 @@ Python expression, which `get_available_actions` evaluates. 15.0 holds condition
 (`15.0/odoo/addons/base/models/ir_ui_view.py:82`); 16.0 additionally pops `attrs`, `states` and
 `invisible` (`16.0/odoo/addons/base/models/ir_ui_view.py:82`, `:89`, `:100`).
 Effect: on 15.0/16.0 every button reports visible.
+`formButtons` reads the condition from `modifiers` on 15.0/16.0 and from `invisible` on 17.0+;
+`holds` evaluates a domain with the web client's `Domain.contains` (as 16.0 does,
+`16.0/addons/web/static/src/views/utils.js:135`) and an expression with `evaluateBooleanExpr`. The
+vendored `domain.js` is 20.0's; 15.0's legacy client used its own domain module with the same
+operators — deliberate scope decision.
 
 **D4 — 18.0+: `get_views` wraps model fields.** `models[model]` is `{fields: {...}}`
 (`18.0/odoo/addons/base/models/ir_ui_view.py:2631`); 16.0/17.0 return the field map itself.

@@ -1,13 +1,18 @@
 /**
  * Expression evaluation as the web client does it, through its own vendored code (py_js,
- * context.js). Odoo stores action domains/contexts and view conditions as Python expressions;
- * the browser evaluates them, never the server.
+ * context.js, domain.js). Odoo stores action domains/contexts and view conditions as Python
+ * expressions or domains; the browser evaluates them, never the server.
  */
 import { OdooClient } from '../odooClient.js';
 import { evaluateBooleanExpr, evaluateExpr } from '../vendor/odoo-web-core/py_js/py.js';
 import { makeContext } from '../vendor/odoo-web-core/context.js';
+import { Domain } from '../vendor/odoo-web-core/domain.js';
 
 type Ctx = Record<string, unknown>;
+
+/** A view condition: a Python expression (17.0+), a domain (15.0/16.0 modifiers) or a constant. */
+export type Condition = string | unknown[] | boolean;
+
 type Fields = Record<string, Record<string, unknown>>;
 
 /**
@@ -54,5 +59,11 @@ export async function recordEvalContext(client: OdooClient, fields: Fields, valu
   };
 }
 
-/** Whether a view condition (invisible, readonly, required) holds. */
-export const evalCondition = (expr: string | undefined, context: Ctx): boolean => evaluateBooleanExpr(expr, context);
+/**
+ * Whether a view condition holds for an evaluation context: expressions as the 17.0+ record does
+ * (evaluateBooleanExpr), domains as 15.0/16.0 do (16.0/addons/web/static/src/views/utils.js:135).
+ */
+export function holds(condition: Condition, context: Ctx): boolean {
+  if (typeof condition === 'boolean') return condition;
+  return Array.isArray(condition) ? new Domain(condition).contains(context) : evaluateBooleanExpr(condition, context);
+}

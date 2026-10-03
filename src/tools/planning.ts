@@ -9,8 +9,8 @@ import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { collectModelActions } from './discovery.js';
 import { ok } from '../utils.js';
-import { views } from '../odoo/views.js';
-import { evalCondition, recordEvalContext } from '../odoo/expr.js';
+import { Button, formRecordContext } from '../odoo/buttons.js';
+import { holds } from '../odoo/expr.js';
 
 // ─── Register ────────────────────────────────────────────────────────────────
 
@@ -34,26 +34,17 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
     async ({ model, record_id, action_id: _actionId }) => {
       try {
         const actionMap = await collectModelActions(client, model);
-        const buttons = (actionMap['view_buttons'] ?? []) as Array<Record<string, unknown>>;
-
-        // The form's record, read as the web client loads it (binary fields as sizes).
-        const { fields } = await views(client, model, 'form');
-        const rows = await client.execute(model, 'read', [[record_id]], {
-          fields: Object.keys(fields), context: { bin_size: true },
-        }) as Array<Record<string, unknown>>;
-        if (!rows.length) return ok({ error: `Record ${model}:${record_id} not found or not accessible.` });
-        const evalCtx = await recordEvalContext(client, fields, rows[0]);
+        const buttons = (actionMap['view_buttons'] ?? []) as Button[];
 
         // Group restrictions need no check: the server drops buttons outside the user's groups
         // (15.0/odoo/addons/base/models/ir_ui_view.py:1007, 16.0/odoo/addons/base/models/ir_ui_view.py:1059).
+        const evalCtx = await formRecordContext(client, model, record_id);
         const seenBtns = new Set<string>();
         const visibleButtons: unknown[] = [];
         for (const btn of buttons) {
-          if (evalCondition(btn['invisible'] as string | undefined, evalCtx)) continue;
-          const name = btn['name'] as string;
-          if (seenBtns.has(name)) continue;
-          seenBtns.add(name);
-          visibleButtons.push({ name, label: btn['label'], type: btn['type'] });
+          if (holds(btn.invisible, evalCtx) || seenBtns.has(btn.name)) continue;
+          seenBtns.add(btn.name);
+          visibleButtons.push({ name: btn.name, label: btn.label, type: btn.type });
         }
 
         // Step 4 & 5: server actions and reports scoped to form
