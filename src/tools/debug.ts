@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
 import { Cache } from '../cache.js';
+import { collectModelActions } from './discovery.js';
 import { xmlParser, FXPNode, viewNodes, ok } from '../utils.js';
 
 export function register(server: McpServer, client: OdooClient, cache: Cache): void {
@@ -42,41 +43,15 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     'inspect_action',
     {
       description:
-        '[DEBUG] Dump all action sources for a model: ' +
-        'server actions, reports, view buttons (type=object), view buttons (type=action).',
+        '[DEBUG] get_model_actions\' result plus the raw attributes of every form button ' +
+        '(context, groups, class, … as the server sends them).',
       inputSchema: { model: z.string() },
     },
     async ({ model }) => {
       try {
-        const modelId = await client.getModelId(model);
-        if (!modelId) return ok({ error: `Model '${model}' not found` });
-
-        const serverActions = await client.execute('ir.actions.server', 'search_read',
-          [[['binding_model_id', '=', modelId]]],
-          { fields: ['id', 'name', 'binding_type', 'binding_view_types', 'state'] },
-        );
-        const reports = await client.execute('ir.actions.report', 'search_read',
-          [[['binding_model_id', '=', modelId]]],
-          { fields: ['id', 'name', 'binding_view_types', 'report_type', 'report_name'] },
-        );
-
-        const viewButtons: Record<string, unknown[]> = { object: [], action: [] };
-        try {
-          const { arch } = await views(client, model, 'form');
-          const nodes = xmlParser.parse(arch) as FXPNode[];
-          for (const [node] of viewNodes(nodes, 'button')) {
-            const attrs = node[':@'] as Record<string, string> | undefined;
-            if (!attrs) continue;
-            const btnType = attrs['type'];
-            if (btnType === 'object' || btnType === 'action') {
-              viewButtons[btnType].push({ ...attrs });
-            }
-          }
-        } catch (e) {
-          viewButtons['parse_error'] = [String(e)];
-        }
-
-        return ok({ model, server_actions: serverActions, reports, view_buttons: viewButtons });
+        const { arch } = await views(client, model, 'form');
+        const raw_buttons = [...viewNodes(xmlParser.parse(arch) as FXPNode[], 'button')].map(([node]) => node[':@'] ?? {});
+        return ok({ model, ...await collectModelActions(client, model), raw_buttons });
       } catch (e) { return ok({ error: String(e) }); }
     },
   );
