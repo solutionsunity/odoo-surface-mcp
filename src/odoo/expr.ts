@@ -7,6 +7,7 @@ import { OdooClient } from '../odooClient.js';
 import { evaluateBooleanExpr, evaluateExpr } from '../vendor/odoo-web-core/py_js/py.js';
 import { makeContext } from '../vendor/odoo-web-core/context.js';
 import { Domain } from '../vendor/odoo-web-core/domain.js';
+import { since } from './since.js';
 
 type Ctx = Record<string, unknown>;
 
@@ -35,11 +36,22 @@ export async function evalAction(
 }
 
 /**
- * A record's evaluation context for view conditions, from a classic read of its view fields
+ * The record's active_* keys in its view evaluation context: there through 17.x
+ * (15.0/addons/web/static/src/legacy/js/views/basic/basic_model.js:3741,
+ * 17.0/addons/web/static/src/model/relational_model/utils.js:318 "deprecated, will be removed in v18"),
+ * gone from 18.0 (18.0/addons/web/static/src/model/relational_model/utils.js:328).
+ */
+const activeKeys = since<[string, unknown], Ctx>('activeKeys', {
+  '15.0': async (_c, model, id) => ({ active_id: id || false, active_ids: id ? [id] : [], active_model: model }),
+  '18.0': async () => ({}),
+});
+
+/**
+ * A record's evaluation context for view expressions, from a classic read of its view fields
  * (20.0/addons/web/static/src/model/relational_model/record.js, _computeDataContext;
  * utils.js, getBasicEvalContext).
  */
-export async function recordEvalContext(client: OdooClient, fields: Fields, values: Ctx): Promise<Ctx> {
+export async function recordEvalContext(client: OdooClient, model: string, fields: Fields, values: Ctx): Promise<Ctx> {
   const context = await client.userContext();
   const data: Ctx = {};
   for (const [name, value] of Object.entries(values)) {
@@ -54,6 +66,7 @@ export async function recordEvalContext(client: OdooClient, fields: Fields, valu
     uid: context.uid,
     allowed_company_ids: context.allowed_company_ids,
     current_company_id: (context.allowed_company_ids as number[] | undefined)?.[0],
+    ...await activeKeys(client, model, values.id ?? false),
     ...data,
     id: values.id ?? false,
   };
@@ -66,6 +79,11 @@ export async function recordEvalContext(client: OdooClient, fields: Fields, valu
 export function holds(condition: Condition, context: Ctx): boolean {
   if (typeof condition === 'boolean') return condition;
   return Array.isArray(condition) ? new Domain(condition).contains(context) : evaluateBooleanExpr(condition, context);
+}
+
+/** A button's context attribute evaluated against its record, as the form does it (20.0/addons/web/static/src/views/view_button/view_button_hook.js:106). */
+export function buttonContext(context: string | undefined, record: Ctx): Ctx {
+  return context ? evaluateExpr(context, record) as Ctx : {};
 }
 
 /** The condition that holds when any of `conditions` does: domains or-ed (15.0/16.0), expressions or-ed (17.0+). */

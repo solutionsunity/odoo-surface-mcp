@@ -100,6 +100,7 @@ until handled and the row reads `ok` across the supported range.
 | D15 | 16.0, 17.0 | html/xml term updates keyed by the language's current term | `updateFieldTranslations` |
 | D16 | 20.0 | `new_page` makes the URL unique only within the context's website | call form |
 | D17 | 15.0 | `ir.ui.view.arch` starts with an XML declaration | `get_snippet` |
+| D18 | 18.0+ | `active_id` / `active_ids` / `active_model` dropped from a record's view evaluation context | `recordEvalContext` (`activeKeys`) |
 | X1 | all | Divergences fail silently | fixed |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | fixed |
 
@@ -211,6 +212,14 @@ on 15.0 it returned the whole template and a composed page arch was rejected ("X
 only at the start of the document"). `get_snippet` now drops the declaration, and returns the body as
 the editor drops it — first element marked `data-snippet` / `data-name`
 (`20.0/addons/html_builder/models/ir_qweb.py:98`).
+
+**D18 — 18.0+: no `active_*` in a record's evaluation context.** Through 17.x the form evaluates view
+expressions with `active_id`, `active_ids`, `active_model` set to the record
+(`15.0/addons/web/static/src/legacy/js/views/basic/basic_model.js:3741`,
+`17.0/addons/web/static/src/model/relational_model/utils.js:318`, marked "deprecated, will be removed in
+v18"); 18.0 drops them (`18.0/addons/web/static/src/model/relational_model/utils.js:328`). Button
+contexts use them on 15.0 (`{'default_partner_id': active_id}` on `res.partner`) and `id` from 17.0.
+`recordEvalContext` adds them through 17.x, so conditions and button contexts evaluate as the form does.
 
 **X1 — divergences fail silently.** Several call sites catch the error and return a plausible
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,

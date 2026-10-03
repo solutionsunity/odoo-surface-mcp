@@ -5,7 +5,7 @@ import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { postMessage } from '../odoo/mail.js';
 import { actionScope, viewFieldNames } from './supporting.js';
-import { evalAction, holds } from '../odoo/expr.js';
+import { buttonContext, evalAction, holds } from '../odoo/expr.js';
 import { formRecordContext } from '../odoo/buttons.js';
 import { collectModelActions } from './discovery.js';
 import { ok, GUIDANCE_HINT } from '../utils.js';
@@ -32,12 +32,16 @@ async function actionCheck(client: OdooClient, model: string, recordId: number):
 }
 
 /**
- * A button's or server action's return as the web client takes it: an action dict is followed,
- * anything else closes into a reload of the record (20.0/addons/web/static/src/webclient/actions/action_plugin.js:1634).
+ * A button's or server action's return as the web client takes it: anything but an action dict
+ * closes into a reload of the record (20.0/addons/web/static/src/webclient/actions/action_plugin.js:1634);
+ * an action is opened with `additional` under its own context, its domain and context evaluated.
  */
-async function actionOutcome(client: OdooClient, model: string, recordId: number, result: unknown): Promise<Record<string, unknown>> {
-  if (result && typeof result === 'object' && !Array.isArray(result)) return result as Record<string, unknown>;
-  return actionCheck(client, model, recordId);
+async function actionOutcome(
+  client: OdooClient, model: string, recordId: number, result: unknown, additional: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return actionCheck(client, model, recordId);
+  const { domain, context } = await evalAction(client, result as Record<string, unknown>, additional);
+  return { ...result, domain, context };
 }
 
 export function register(server: McpServer, client: OdooClient, cache: Cache): void {
@@ -139,6 +143,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           if (!btn) {
             return ok({ error: `Button '${action}' is not visible on ${model}:${record_id} in its current state.` });
           }
+          // The button's context, evaluated against the record: the call's context (type=object),
+          // then under active_* in the action it opens (20.0/addons/web/static/src/webclient/actions/action_plugin.js:1606, 1715).
+          const btnCtx = buttonContext(btn.context, evalCtx);
+          const opened = { ...btnCtx, ...activeCtx(record_id, model) };
 
           if (btn.type === 'action') {
             const actionId = parseInt(btn.name, 10);
@@ -149,14 +157,11 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
             const actionType = meta[0].type ?? 'ir.actions.act_window';
             const full = await client.execute(actionType, 'read', [[actionId]]) as Array<Record<string, unknown>>;
             if (!full.length) return ok({ error: `Could not load action ${actionId}.` });
-            // As the web client opens it from the record: active_* as additional context.
-            const { domain, context } = await evalAction(client, full[0], activeCtx(record_id, model));
-            return ok({ ...full[0], domain, context });
+            return ok(await actionOutcome(client, model, record_id, full[0], opened));
           }
 
-          // type=object → call_button
-          const result = await client.callButton(model, btn.name, [[record_id]]);
-          return ok(await actionOutcome(client, model, record_id, result));
+          const result = await client.callButton(model, btn.name, [[record_id]], { context: btnCtx });
+          return ok(await actionOutcome(client, model, record_id, result, opened));
         }
 
         // 2. Server actions

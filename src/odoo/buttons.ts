@@ -12,6 +12,8 @@ export interface Button {
   label: string;
   type: string;
   invisible: Condition;
+  /** The context attribute, a Python expression evaluated against the record on click. */
+  context?: string;
 }
 
 type Attrs = Record<string, string>;
@@ -23,7 +25,10 @@ function buttons(arch: string, invisible: (attrs: Attrs) => Condition): Button[]
     const attrs = node[':@'] as Attrs | undefined;
     if (!attrs || !BUTTON_TYPES.has(attrs['type'])) continue;
     const conditions = [...ancestors, node].map(n => invisible((n[':@'] ?? {}) as Attrs));
-    out.push({ name: attrs['name'], label: attrs['string'] ?? attrs['name'], type: attrs['type'], invisible: anyOf(conditions) });
+    out.push({
+      name: attrs['name'], label: attrs['string'] ?? attrs['name'], type: attrs['type'], invisible: anyOf(conditions),
+      ...(attrs['context'] && { context: attrs['context'] }),
+    });
   }
   return out;
 }
@@ -45,5 +50,5 @@ export async function formRecordContext(c: OdooClient, model: string, id: number
     fields: Object.keys(fields), context: { bin_size: true },
   }) as Array<Record<string, unknown>>;
   if (!rows.length) throw new Error(`Record ${model}:${id} not found or not accessible.`);
-  return recordEvalContext(c, fields, rows[0]);
+  return recordEvalContext(c, model, fields, rows[0]);
 }
