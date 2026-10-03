@@ -50,6 +50,13 @@ async function translatable(c: OdooClient, model: string, field: string): Promis
 
 // ─── Operations ──────────────────────────────────────────────────────────────
 
+/** update_field_translations; False means nothing was written — not translatable, or no stored value. */
+async function write(c: OdooClient, model: string, id: number, field: string, translations: Translations): Promise<void> {
+  if (await c.execute(model, 'update_field_translations', [[id], field, translations]) === false) {
+    throw new Error(`Field '${field}' on ${model}:${id} was not written — not translatable, or it has no value to translate.`);
+  }
+}
+
 /**
  * A field's translations in 16.0's get_field_translations shape: for translate=True one row per
  * language (value falls back to the source); for html/xml one row per term and language (value ''
@@ -96,7 +103,7 @@ export const updateFieldTranslations = since<[string, number, string, Translatio
     const installed = new Set(await installedLangs(c));
     const missing = Object.keys(translations).filter(l => !installed.has(l));
     if (missing.length) throw new Error(`The following languages are not activated: ${missing.join(', ')}`);
-    if (!await translatable(c, model, field)) return;
+    if (!await translatable(c, model, field)) throw new Error(`Field '${field}' on ${model} is not translatable.`);
     const { domain, meta } = await dialog(c, model, id, field);
     if (!meta.translation_show_source) {
       for (const [lang, value] of Object.entries(translations)) {
@@ -130,10 +137,8 @@ export const updateFieldTranslations = since<[string, number, string, Translatio
         Object.fromEntries(Object.entries(terms as Record<string, string>).map(([src, value]) =>
           [current.get(`${lang}\u0000${src}`) ?? src, value]))]));
     }
-    await c.execute(model, 'update_field_translations', [[id], field, translations]);
+    await write(c, model, id, field, translations);
   },
   // Keyed by source (en_US) terms (18.0/odoo/models.py:3914).
-  '18.0': async (c, model, id, field, translations) => {
-    await c.execute(model, 'update_field_translations', [[id], field, translations]);
-  },
+  '18.0': write,
 });
