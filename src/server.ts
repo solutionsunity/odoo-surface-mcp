@@ -1,4 +1,5 @@
 /** OdooSurface MCP server factory. */
+import { createRequire } from 'module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { OdooClient } from './odooClient.js';
 import { Cache } from './cache.js';
@@ -10,13 +11,15 @@ import { register as registerIntent } from './tools/intent.js';
 import { register as registerDebug } from './tools/debug.js';
 import { register as registerWebsite } from './tools/website.js';
 
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
 export function createServer(debug = false): { server: McpServer; client: OdooClient } {
   const client = OdooClient.fromEnv();
   const cache = new Cache(300); // 5-minute TTL
 
   const server = new McpServer({
     name: 'odoo-surface',
-    version: '0.4.4',
+    version,
   });
 
   // Layer 0 — Guidance (skills + workflows; canonical recipes for deterministic tool composition)
