@@ -13,6 +13,7 @@ import { views } from '../odoo/views.js';
 import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
 import { evalAction } from '../odoo/expr.js';
 import { TermRow, fieldTranslations, updateFieldTranslations } from '../odoo/translations.js';
+import { readGroup } from '../odoo/group.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok, outputPath, GUIDANCE_HINT } from '../utils.js';
 
@@ -163,6 +164,32 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         if (Object.keys(mergedCtx).length) countKwargs['context'] = mergedCtx;
         const total = await client.execute(model, 'search_count', [domain], countKwargs);
         return ok({ total, offset, limit, records }, output_path);
+      } catch (e) { return ok({ error: String(e) }); }
+    },
+  );
+
+  server.registerTool(
+    'read_group',
+    {
+      description:
+        'Count and aggregate records per group — as the list view grouped by a field shows them. ' +
+        'groupby: field names, dates with a granularity ("create_date:month"; day|week|month|quarter|year); ' +
+        'empty for one total. aggregates: "field:agg" specs (sum, avg, min, max, count_distinct, …). ' +
+        'domain filters the records first. ' +
+        'Returns [{<groupby>: value, __count, <aggregate>: value}] — many2one values as [id, name], ' +
+        'date groups as [range start, label].',
+      inputSchema: {
+        model: z.string(),
+        domain: z.array(z.unknown()).optional(),
+        groupby: z.array(z.string()),
+        aggregates: z.array(z.string()).optional(),
+        context: z.record(z.unknown()).optional(),
+        output_path: outputPath,
+      },
+    },
+    async ({ model, domain, groupby, aggregates, context, output_path }) => {
+      try {
+        return ok(await readGroup(client, model, domain ?? [], groupby, aggregates ?? [], context ?? {}), output_path);
       } catch (e) { return ok({ error: String(e) }); }
     },
   );

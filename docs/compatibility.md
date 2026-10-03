@@ -42,6 +42,7 @@ the path and signature are unchanged.
 | `name_search` (domain positional) | `search_records` | ok | ok | ok | ok | ok | ok |
 | `fields_get` | `get_fields`, `get_defaults`, `update`, `archive`, `inspect_fields`, `odooClient.validFieldNames()` | ok | ok | ok | ok | ok | ok |
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |
+| `readGroup` (`src/odoo/group.ts`: `read_group` to 18.0, `formatted_read_group` from 19.0) | `read_group` | ok | ok | ok | ok | ok | ok |
 | `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
 | `formButtons` + `holds` (`src/odoo/buttons.ts`, `expr.ts`) | `get_model_actions`, `get_available_actions`, `execute_action` | ok | ok | ok | ok | ok | ok |
 | `hasAccess` (`src/odoo/access.ts`) | `get_model_actions`, `get_model_interface`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
