@@ -227,29 +227,6 @@ export class OdooClient {
     };
   }
 
-  async getFormArch(model: string): Promise<string> {
-    const result = await this.execute(model, 'get_views', [[[false, 'form']]]) as {
-      views: { form: { arch: string } };
-    };
-    return result.views.form.arch;
-  }
-
-  async getFormFields(model: string): Promise<Record<string, unknown>> {
-    try {
-      const result = await this.execute(model, 'get_views', [[[false, 'form']]]) as {
-        views: { form: { fields?: Record<string, unknown> } };
-        models?: Record<string, unknown>;
-      };
-      const modelsMeta = result.models as Record<string, unknown> | undefined;
-      if (modelsMeta?.[model]) return modelsMeta[model] as Record<string, unknown>;
-      const formFields = (result.views?.form as Record<string, unknown>)?.fields;
-      if (formFields) return formFields as Record<string, unknown>;
-    } catch { /* fall through */ }
-    return await this.execute(model, 'fields_get', [], {
-      attributes: ['string', 'type', 'relation', 'required', 'readonly'],
-    }) as Record<string, unknown>;
-  }
-
   async checkAccess(model: string, operation: string): Promise<boolean> {
     try {
       return Boolean(await this.execute(model, 'check_access_rights', [operation, false]));

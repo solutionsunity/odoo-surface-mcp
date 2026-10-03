@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
+import { views } from '../odoo/views.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
 
@@ -31,10 +32,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, view_type }) => {
       try {
-        const result = await client.execute(model, 'get_views', [[[false, view_type]]]) as {
-          views: Record<string, { arch: string }>;
-        };
-        const arch = result.views?.[view_type]?.arch ?? '';
+        const { arch } = await views(client, model, view_type);
         return ok({ model, view_type, arch });
       } catch (e) { return ok({ error: String(e) }); }
     },
@@ -64,7 +62,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
 
         const viewButtons: Record<string, unknown[]> = { object: [], action: [] };
         try {
-          const arch = await client.getFormArch(model);
+          const { arch } = await views(client, model, 'form');
           const nodes = xmlParser.parse(arch) as FXPNode[];
           for (const node of iterNodes(nodes, 'button')) {
             const attrs = node[':@'] as Record<string, string> | undefined;

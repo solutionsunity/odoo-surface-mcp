@@ -42,8 +42,8 @@ the path and signature are unchanged.
 | `name_search` | `search_records` | ok | ok | ok | ok | D8 | D8 |
 | `fields_get` | `get_fields`, `get_defaults`, `update`, `archive`, `inspect_fields`, `odooClient.validFieldNames()` | ok | ok | ok | ok | ok | ok |
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |
-| `get_views` → `views[type].arch` | `odooClient.getFormArch()`, `viewFieldNames()`, `inspect_view` | D1 | D3 | ok | D5 | D5 | D5 |
-| `get_views` → `models[model]` | `odooClient.getFormFields()` | D1 | ok | ok | D4 | D4 | D4 |
+| `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
+| button visibility (`invisible` in arch) | `get_available_actions` | D3 | D3 | ok | ok | ok | ok |
 | `check_access_rights` | `odooClient.checkAccess()` | ok | ok | ok | D6 | D6 | D6 |
 | `get_field_translations` | `translation_get`, `translation_audit` | D2 | ok | ok | ok | ok | ok |
 | `update_field_translations` | `translation_update` | D2 | ok | ok | ok | ok | ok |
@@ -82,11 +82,11 @@ here once it lands. Status: **open** until then and the row reads `ok` across th
 
 | # | Series | Divergence | Status |
 |---|---|---|---|
-| D1 | 15.0 | No `get_views` | open |
+| D1 | 15.0 | No `get_views` | `views` |
 | D2 | 15.0 | No field-translation API | open |
 | D3 | 15.0, 16.0 | Conditional visibility is a domain, not an expression | open |
-| D4 | 18.0+ | `get_views` wraps model fields | open |
-| D5 | 18.0+ | View type `tree` renamed `list` | open |
+| D4 | 18.0+ | `get_views` wraps model fields | `views` |
+| D5 | 18.0+ | View type `tree` renamed `list` | `views` |
 | D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | open |
 | D7 | 19.0+ | `res.users.groups_id` renamed | open |
 | D8 | 19.0+ | `name_search` `args` renamed `domain` | open |
@@ -96,7 +96,7 @@ here once it lands. Status: **open** until then and the row reads `ok` across th
 | D12 | 20.0 | `website.page.url` translatable | open |
 | D13 | 20.0 | Binary fields read as an object | open |
 | D14 | 20.0 | `ir.attachment.datas` removed | open |
-| X1 | all | Divergences fail silently | open |
+| X1 | all | Divergences fail silently | open — `views` callers done |
 
 **D1 — 15.0: no `get_views`.** 15.0 offers `load_views(views, options)` (`15.0/odoo/models.py:1626`),
 returning `{fields_views: {<type>: {arch, fields}}, fields}`. `get_views` arrives in 16.0, where
@@ -129,6 +129,8 @@ Effect: `get_models` related-model discovery returns `[]`; `get_model_interface`
 **D5 — 18.0+: view type `tree` is `list`.** `ir.ui.view.type` selection renamed
 (`18.0/odoo/addons/base/models/ir_ui_view.py:153`); 18.0+ no longer maps `tree`, and
 `get_views([[false,'tree']])` raises `UserError` (`18.0/odoo/addons/base/models/ir_ui_view.py:2713`).
+`list` is accepted on every series: 15.0–17.0 map it to `tree` themselves
+(`15.0/odoo/models.py:1641`, `16.0/odoo/addons/base/models/ir_ui_view.py:2522`).
 Effect: `list_records` default columns collapse to `display_name`.
 
 **D6 — 18.0+: `check_access_rights`.** Deprecated with a warning in 18.0 (`18.0/odoo/models.py:4512`)

@@ -2,6 +2,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
+import { views } from '../odoo/views.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
 
@@ -59,7 +60,7 @@ async function relatedModels(client: OdooClient, cache: Cache, base: string): Pr
   const cached = cache.get(key);
   if (cached) return cached as unknown[];
 
-  const meta = await client.getFormFields(base) as Record<string, Record<string, unknown>>;
+  const { fields: meta } = await views(client, base, 'form');
   const result: unknown[] = [];
   for (const [fname, fmeta] of Object.entries(meta)) {
     if (!RELATIONAL_TYPES.has(String(fmeta['type']))) continue;
@@ -99,7 +100,7 @@ export async function collectModelActions(client: OdooClient, model: string): Pr
 
   let viewButtons: unknown[] = [];
   try {
-    const arch = await client.getFormArch(model);
+    const { arch } = await views(client, model, 'form');
     const nodes = xmlParser.parse(arch) as FXPNode[];
     for (const node of iterNodes(nodes, 'button')) {
       const attrs = node[':@'] as Record<string, string> | undefined;
@@ -186,7 +187,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
       if (cached) return ok(cached);
       try {
         const [fields, actions] = await Promise.all([
-          client.getFormFields(model),
+          views(client, model, 'form').then(v => v.fields),
           collectModelActions(client, model),
         ]);
         const result = { fields, ...actions };

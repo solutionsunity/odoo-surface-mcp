@@ -9,6 +9,7 @@ import { dirname } from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
+import { views } from '../odoo/views.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -82,39 +83,16 @@ export async function viewFieldNames(
   const cached = cache.get(key);
   if (cached !== undefined) return cached as string[];
 
-  const odooType = viewType === 'list' ? 'tree' : viewType;
-  let arch = '';
-  try {
-    const result = await client.execute(model, 'get_views', [[[false, odooType]]]) as {
-      views: Record<string, { arch?: string }>;
-    };
-    arch = result.views?.[odooType]?.arch ?? '';
-  } catch { /* fall through */ }
-
-  if (!arch) { cache.set(key, []); return []; }
-
-  try {
-    const nodes = parseArch(arch);
-    const seen = new Set<string>();
-    const names: string[] = [];
-    for (const node of iterNodes(nodes, 'field')) {
-      const attrs = node[':@'] as Record<string, string> | undefined;
-      const name = attrs?.['name'];
-      if (name && !seen.has(name)) { seen.add(name); names.push(name); }
-    }
-    try {
-      const valid = await client.validFieldNames(model);
-      const filtered = names.filter(n => valid.has(n));
-      cache.set(key, filtered);
-      return filtered;
-    } catch {
-      cache.set(key, names);
-      return names;
-    }
-  } catch {
-    cache.set(key, []);
-    return [];
+  // Arch order, restricted to the model's own fields (sub-view fields belong to other models).
+  const { arch, fields } = await views(client, model, viewType);
+  const names = new Set<string>();
+  for (const node of iterNodes(parseArch(arch), 'field')) {
+    const name = (node[':@'] as Record<string, string> | undefined)?.['name'];
+    if (name && name in fields) names.add(name);
   }
+  const result = [...names];
+  cache.set(key, result);
+  return result;
 }
 
 const QWEB_DYNAMIC = new Set([
