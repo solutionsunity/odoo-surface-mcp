@@ -40,6 +40,8 @@ const CASES = [
   ['get_model_actions', { model: 'res.partner' }, r => noError(r.view_buttons) || 'view_buttons error'],
   ['get_model_interface', { model: 'res.partner' }, r => (nonEmpty(r.fields) && !('fields' in r.fields)) || 'fields empty or nested'],
   ['search_records', { model: 'res.partner', query: 'a', limit: 3 }, r => (nonEmpty(r) && noError(r)) || 'empty'],
+  ['download_binary', { model: 'res.company', record_id: 1, field: 'logo', dest_path: '/tmp/smoke-compat-logo.png' },
+    r => r.size_bytes > 0 || 'no bytes'],
 ];
 
 function server(env) {

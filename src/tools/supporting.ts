@@ -10,6 +10,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
+import { readBinary, writeAttachmentContent } from '../odoo/binary.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -487,10 +488,10 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
           // python-magic binary detection which returns text/plain for CSS/JS).
           const ext = filename.split('.').pop()?.toLowerCase() ?? '';
           const detectedMime = EXT_MIME[ext];
-          const writeVals: Record<string, unknown> = { datas: data, name: filename };
+          const writeVals: Record<string, unknown> = { name: filename };
           if (detectedMime) writeVals['mimetype'] = detectedMime;
           if (isPublic) writeVals['public'] = true;
-          await client.execute('ir.attachment', 'write', [[attachment_id], writeVals]);
+          await writeAttachmentContent(client, attachment_id, data, writeVals);
           const src = is_image ? `/web/image/${attachment_id}` : `/web/content/${attachment_id}`;
           return ok({ id: attachment_id, src, name: filename });
         }
@@ -530,11 +531,9 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
     },
     async ({ model, record_id, field, dest_path }) => {
       try {
-        const rows = await client.execute(model, 'read', [[record_id]], { fields: [field] }) as Array<Record<string, unknown>>;
-        if (!rows.length) return ok({ error: `Record ${model}:${record_id} not found.` });
-        const raw = rows[0][field];
-        if (!raw || raw === false) return ok({ error: `Field '${field}' on ${model}:${record_id} is empty or not a binary.` });
-        const buffer = Buffer.from(String(raw), 'base64');
+        const content = await readBinary(client, model, record_id, field);
+        if (!content) return ok({ error: `Field '${field}' on ${model}:${record_id} is empty or not a binary.` });
+        const buffer = Buffer.from(content, 'base64');
         await mkdir(dirname(dest_path), { recursive: true });
         await writeFile(dest_path, buffer);
         return ok({ success: true, dest_path, size_bytes: buffer.length });

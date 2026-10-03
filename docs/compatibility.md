@@ -36,7 +36,7 @@ the path and signature are unchanged.
 |---|---|---|---|---|---|---|---|
 | `create` | `create` | ok | ok | ok | ok | ok | ok |
 | `read` | `get_record`, `create`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
-| `read` of a binary field | `download_binary` | ok | ok | ok | ok | ok | D13 |
+| `readBinary` (`src/odoo/binary.ts`) | `download_binary` | ok | ok | ok | ok | ok | ok |
 | `write` | `update`, `archive`, `upload_binary` | ok | ok | ok | ok | ok | ok |
 | `search_read`, `search_count` | `list_records`, `search_records` | ok | ok | ok | ok | ok | ok |
 | `name_search` (domain positional) | `search_records` | ok | ok | ok | ok | ok | ok |
@@ -65,7 +65,7 @@ the path and signature are unchanged.
 | `ir.ui.view.search_read` | `list_snippets`, `get_snippet` | ok | ok | ok | ok | ok | ok |
 | `ir.ui.view.read`, `.write` (`arch_db`) | `get_page_arch`, `set_page_arch` | ok | ok | ok | ok | ok | ok |
 | `ir.attachment.search_read` | `list_attachments` | ok | ok | ok | ok | ok | ok |
-| `ir.attachment.write(datas)` | `fetch_and_upload` (replace) | ok | ok | ok | ok | ok | D14 |
+| `writeAttachmentContent` (`src/odoo/binary.ts`) | `fetch_and_upload` (replace) | ok | ok | ok | ok | ok | ok |
 | `website.page.search_read` | `list_pages` | ok | ok | ok | ok | ok | D12 |
 | `website.page.read`, `.write` (`is_published`) | `get_page_arch`, `set_page_visibility` | ok | ok | ok | ok | ok | ok |
 | `mail.activity.type.search_read` | `schedule_activity` | ok | ok | ok | ok | ok | ok |
@@ -95,9 +95,10 @@ until handled and the row reads `ok` across the supported range.
 | D10 | 19.0+ | `message_post` returns `[id]` | open |
 | D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | open |
 | D12 | 20.0 | `website.page.url` translatable | open |
-| D13 | 20.0 | Binary fields read as an object | open |
-| D14 | 20.0 | `ir.attachment.datas` removed | open |
-| X1 | all | Divergences fail silently | open — `views` callers done |
+| D13 | 20.0 | Binary fields read as an object | `readBinary` |
+| D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
+| X1 | all | Divergences fail silently | open — `views`, binary callers done |
+| X2 | 20.0 | Guidance names `ir.attachment.datas` | open |
 
 **D1 — 15.0: no `get_views`.** 15.0 offers `load_views(views, options)` (`15.0/odoo/models.py:1626`),
 returning `{fields_views: {<type>: {arch, fields}}, fields}`. `get_views` arrives in 16.0, where
@@ -177,3 +178,10 @@ replacing.
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,
 `getFormFields()` falls back to all fields, `download_binary` and `fetch_and_upload` report success.
 A divergence must surface as an error, never as an empty or partial result.
+
+**X2 — 20.0: guidance names `ir.attachment.datas`.** Skills and workflows instruct agents to read or
+write `datas` directly through generic tools (`skills/upload_attachment.md`,
+`skills/migrate_binary_field.md`, `workflows/create_blog_post.md`,
+`workflows/website_page_with_assets.md`). On 20.0 the field is `raw` (D14). Guidance must route
+content through the tools that hide the field (`fetch_and_upload`, `download_binary`,
+`upload_binary`) or state the field per series.
