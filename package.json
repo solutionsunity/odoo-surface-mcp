@@ -15,11 +15,11 @@
     "version": "node scripts/version.mjs && git add server.json"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "dotenv": "^16.4.0",
     "fast-xml-parser": "^4.4.0",
     "yaml": "^2.8.4",
-    "zod": "^3.23.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
