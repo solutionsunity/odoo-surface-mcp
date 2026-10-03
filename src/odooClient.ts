@@ -53,6 +53,8 @@ function parseVersion(info: unknown): OdooVersion {
 interface Session {
   uid: number;
   version: OdooVersion;
+  /** The web client's user context: user_context plus the active company (its default). */
+  context: Record<string, unknown>;
 }
 
 export class OdooClient {
@@ -152,10 +154,20 @@ export class OdooClient {
     if (this._session) return this._session;
     const result = await this.rpc('/web/session/authenticate', {
       db: this.db, login: this.username, password: this.password,
-    }) as { uid?: number; server_version_info?: unknown } | null;
+    }) as {
+      uid?: number;
+      server_version_info?: unknown;
+      user_context?: Record<string, unknown>;
+      user_companies?: { current_company?: number };
+    } | null;
     const uid = result?.uid;
     if (!uid) throw new Error(`Odoo authentication failed: ${this.username}@${this.db}`);
-    this._session = { uid, version: parseVersion(result.server_version_info) };
+    const company = result.user_companies?.current_company;
+    const context: Record<string, unknown> = { ...result.user_context, ...(company && { allowed_company_ids: [company] }) };
+    // The process stands in for the user's browser: local dates (context_today(), today) are the
+    // user's, as in the web client.
+    if (typeof context.tz === 'string') process.env.TZ = context.tz;
+    this._session = { uid, version: parseVersion(result.server_version_info), context };
     return this._session;
   }
 
@@ -165,6 +177,10 @@ export class OdooClient {
 
   async version(): Promise<OdooVersion> {
     return (await this.session()).version;
+  }
+
+  async userContext(): Promise<Record<string, unknown>> {
+    return (await this.session()).context;
   }
 
   // -------------------------------------------------------------------------
