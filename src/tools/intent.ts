@@ -6,7 +6,8 @@ import { OdooClient } from '../odooClient.js';
 import { Cache } from '../cache.js';
 import { postMessage } from '../odoo/mail.js';
 import { resolveContext, viewFieldNames } from './supporting.js';
-import { evalAction } from '../odoo/expr.js';
+import { evalAction, holds } from '../odoo/expr.js';
+import { Button, formRecordContext } from '../odoo/buttons.js';
 import { collectModelActions } from './discovery.js';
 import { ok, GUIDANCE_HINT } from '../utils.js';
 
@@ -117,6 +118,7 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         'action: button name (method) or label as shown in get_model_actions — ' +
         'e.g. "action_confirm", "Confirm", "Privacy Lookup". ' +
         'View buttons (type=object) call the method directly; server actions use ir.actions.server.run. ' +
+        'A button hidden on the record in its current state is refused, as in the form. ' +
         'Returns the Odoo action result, {success: true}, or {error}.',
       inputSchema: {
         model: z.string(),
@@ -129,8 +131,12 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         const actionMap = await collectModelActions(client, model);
 
         // 1. View buttons
-        for (const btn of (actionMap['view_buttons'] as Array<Record<string, unknown>> ?? [])) {
-          if (btn['name'] !== action && btn['label'] !== action) continue;
+        for (const btn of (actionMap['view_buttons'] as Button[] ?? [])) {
+          if (btn.name !== action && btn.label !== action) continue;
+          // The user can only click what the form shows for this record.
+          if (holds(btn.invisible, await formRecordContext(client, model, record_id))) {
+            return ok({ error: `Button '${action}' is not visible on ${model}:${record_id} in its current state.` });
+          }
 
           if (btn['type'] === 'action') {
             const actionId = parseInt(String(btn['name']), 10);
