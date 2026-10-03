@@ -1,4 +1,4 @@
-/** Layer 5 — Website tools: list_pages, get_page_arch, set_page_arch, set_page_visibility, fetch_and_upload, list_attachments. */
+/** Layer 5 — Website: pages and their content. */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';

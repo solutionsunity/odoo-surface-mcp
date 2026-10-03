@@ -1,9 +1,4 @@
-/**
- * Layer 3 — Supporting tools: list_records, get_record (+ fields/context), search_records,
- * get_fields, get_defaults, get_filters, list_snippets, get_snippet,
- * list_attachments, fetch_and_upload, translation_get, translation_update, translation_audit.
- * Also exports shared helpers used by other layers.
- */
+/** Layer 3 — Supporting: reads, files and translations; also the helpers other layers share. */
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

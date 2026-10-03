@@ -1,4 +1,4 @@
-/** Layer 1 — Discovery tools: get_models, get_model_actions. */
+/** Layer 1 — Discovery: what the user can reach — models through menus, a model's actions. */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';

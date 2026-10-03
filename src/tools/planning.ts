@@ -1,8 +1,4 @@
-/**
- * Layer 2 — Planning Bridge: get_available_actions.
- *
- * Evaluates which buttons are actually visible for a specific record, as the web client does.
- */
+/** Layer 2 — Planning bridge: what is actionable on one record right now, as its form shows it. */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';

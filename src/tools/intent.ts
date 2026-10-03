@@ -1,5 +1,4 @@
-/** Layer 4 — Primary Intent tools: create, update, execute_action, archive,
- * post_message, schedule_activity. */
+/** Layer 4 — Primary intent: the changes a user makes — records, buttons, chatter, activities. */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
