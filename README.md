@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
 [![Node](https://img.shields.io/node/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
-[![Odoo](https://img.shields.io/badge/Odoo-17%2B-blueviolet)](https://www.odoo.com)
+[![Odoo](https://img.shields.io/badge/Odoo-15%2B-blueviolet)](https://www.odoo.com)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
 
@@ -11,7 +11,7 @@ User-equivalent Odoo access for AI agents — what the authenticated user can do
 ## Prerequisites
 
 - Node.js 18+ (ships with `npx` — no extra install needed)
-- A running Odoo instance (17.0+, CE or EE)
+- A running Odoo instance (15.0+, CE or EE) — per-version behaviour of every call: [docs/compatibility.md](docs/compatibility.md)
 - An MCP-compatible client (VS Code, Claude Desktop, Claude Code, Cursor, …)
 
 ## Configure your MCP client
@@ -127,8 +127,8 @@ Registers additional tools: `ping`, `echo`, `inspect_view`, `inspect_action`, `i
 | Guidance | `list_skills`, `get_skills`, `find_skill`, `list_workflows`, `get_workflows` |
 | Discovery | `get_models`, `get_model_actions`, `get_model_interface` |
 | Planning | `get_available_actions` |
-| Supporting | `list_records`, `get_record`, `search_records`, `get_fields`, `get_defaults`, `get_filters`, `list_snippets`, `get_snippet`, `list_attachments`, `fetch_and_upload`, `translation_get`, `translation_update`, `translation_audit` |
-| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity`, `set_page_arch`, `set_page_visibility` |
+| Supporting | `list_records`, `get_record`, `search_records`, `read_group`, `get_fields`, `get_defaults`, `get_filters`, `list_pages`, `get_page_arch`, `list_snippets`, `get_snippet`, `list_attachments`, `download_binary`, `fetch_and_upload`, `translation_get`, `translation_update`, `translation_audit` |
+| Intent | `create`, `update`, `execute_action`, `archive`, `post_message`, `schedule_activity`, `set_page_arch`, `set_page_visibility`, `upload_binary` |
 
 ## Architecture
 

@@ -98,7 +98,7 @@ until handled and the row reads `ok` across the supported range.
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
 | D15 | 16.0, 17.0 | html/xml term updates keyed by the language's current term | `updateFieldTranslations` |
 | X1 | all | Divergences fail silently | fixed |
-| X2 | 20.0 | Guidance names `ir.attachment.datas` | open |
+| X2 | 20.0 | Guidance names `ir.attachment.datas` | fixed |
 
 **D1 — 15.0: no `get_views`.** 15.0 offers `load_views(views, options)` (`15.0/odoo/models.py:1626`),
 returning `{fields_views: {<type>: {arch, fields}}, fields}`. `get_views` arrives in 16.0, where
@@ -207,4 +207,7 @@ write `datas` directly through generic tools (`skills/upload_attachment.md`,
 `skills/migrate_binary_field.md`, `workflows/create_blog_post.md`,
 `workflows/website_page_with_assets.md`). On 20.0 the field is `raw` (D14). Guidance must route
 content through the tools that hide the field (`fetch_and_upload`, `download_binary`,
-`upload_binary`) or state the field per series.
+`upload_binary`) or state the field per series. Done: content moves through those tools; where the
+caller must name the field (`download_binary` / `upload_binary` on `ir.attachment`), the guidance
+names it per series. Same pass: `ir.ui.view.groups_id` is `group_ids` from 19.0
+(`19.0/odoo/addons/base/models/ir_ui_view.py:175`).
