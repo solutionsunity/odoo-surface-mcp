@@ -1,6 +1,10 @@
-name: Publish to npm
+name: Publish
 
-# OIDC Trusted Publishing — no npm token required.
+# One tag, one release: npm, GitHub Release, MCP Registry. Cut it with
+#   npm version <x.y.z> && git push --follow-tags
+# (scripts/version.mjs stamps server.json in the version commit; the first step checks it).
+#
+# npm — OIDC Trusted Publishing, no npm token required.
 #
 # One-time setup on npmjs.com (per package):
 #   Package → Publishing → Automated Publishing → Add trusted publisher
@@ -45,11 +49,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     permissions:
-      contents: read
-      id-token: write  # required for npm OIDC trusted publishing
+      contents: write  # GitHub Release
+      id-token: write  # npm trusted publishing and MCP Registry OIDC
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tag, package.json and server.json agree
+        run: node scripts/version.mjs --check
 
       - uses: actions/setup-node@v4
         with:
@@ -77,3 +84,21 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --access public
+
+      - name: GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Install mcp-publisher (pinned, checksum-verified)
+        run: |
+          V=1.8.1
+          SHA=a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+          curl -fsSL -o mcp-publisher.tgz "https://github.com/modelcontextprotocol/registry/releases/download/v${V}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${SHA}  mcp-publisher.tgz" | sha256sum -c -
+          tar xzf mcp-publisher.tgz mcp-publisher
+
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
