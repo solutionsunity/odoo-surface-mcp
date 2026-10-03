@@ -1,14 +1,14 @@
 ---
 name: create_website_page
-summary: Create a new website.page with URL, structured arch content built from snippets, and optional SEO meta.
+summary: Create a new website.page with create_page, structured arch content built from snippets, and optional SEO meta.
 skills: [upload_attachment, inject_snippet, edit_view_arch]
 applies_to:
   models: [website.page, ir.ui.view]
   operations: [create]
 preconditions:
-  - A website record exists (`search_records('website', [], fields=['id','name'])` to confirm).
+  - A website record exists (`list_records('website', fields=['name'])` to confirm).
   - Page is created in the source language. For multilingual publishing, run `translate_website_page` after editorial review.
-  - Target URL does not conflict with an existing page (`search_records('website.page', [['url','=','/<slug>']])` returns empty).
+  - Target URL does not conflict with an existing page (`list_records('website.page', domain=[['url','=','/<slug>']])` returns none).
 ---
 
 # Workflow: Create a `website.page`
@@ -18,41 +18,33 @@ Source-language only. Translation is a separate lifecycle step — see `translat
 ## Step 1 — Confirm URL availability
 
 ```
-search_records('website.page', [['url', '=', '/<slug>']], fields=['id', 'name'])
+list_records('website.page', domain=[['url', '=', '/<slug>']], fields=['name'])
 ```
-Must return empty. If not, choose a different slug or update the existing page.
+Must return none. If not, choose a different slug or update the existing page.
 
 ## Step 2 — Create the page
 
 ```
-create('website.page', {
-  name: '<Internal view name>',
-  url: '/<slug>',
-  is_published: false,
-  website_indexed: true
-})
+create_page(name='<Page name>')
 ```
-Returns: `{ id: <page_id> }`
-
-Odoo automatically creates a linked `ir.ui.view` record. Retrieve it:
-```
-get_record('website.page', <page_id>, fields=['view_id', 'name', 'url'])
-```
-Capture `view_id[0]` — this is the view id for all arch operations.
+Returns: `{ page_id, view_id, url }` — the website editor's "New → Page": a view from the default
+template plus the page, **unpublished**. The URL is the slugified name, suffixed (`-1`, …) if taken;
+to use a different slug: `update('website.page', <page_id>, {url: '/<slug>'})`.
+A plain `create('website.page', …)` fails — a page needs its view.
 
 ## Step 3 — Read initial arch
 
 ```
-get_page_arch(page_id=<view_id>)
+get_page_arch(page_id=<page_id>)
 ```
-Odoo generates a minimal default arch. Hold it in memory as your starting point.
+Returns `{view_id, arch_db}`. Odoo generates a minimal default arch. Hold it in memory as your starting point.
 
 ## Step 4 — Build content from snippets
 
 Apply skill `inject_snippet` for each content block:
 
 1. `list_snippets()` — identify needed snippets (e.g. `s_banner`, `s_text_image`, `s_three_columns`).
-2. `get_snippet(name='<snippet>')` — fetch canonical HTML for each.
+2. `get_snippet(key='website.<snippet>')` — fetch canonical HTML for each.
 3. Compose the full arch in memory: start from the initial arch (Step 3), insert snippet blocks at correct positions inside the `oe_structure` container.
 4. Fill editable text/image placeholders with actual content.
 5. Validate XML mentally (balanced tags, quoted attrs, no bare `&`).
@@ -62,14 +54,15 @@ Apply skill `inject_snippet` for each content block:
 Apply skill `upload_attachment` for each image used in the page:
 
 ```
-fetch_and_upload(query='<search>', model='website.page', record_id=<page_id>)
+fetch_and_upload(source='<https://… or /absolute/path>', is_image=true, public=true,
+                 res_model='ir.ui.view', res_id=<view_id>)
 ```
-Or binary/URL paths per the skill. Capture `/web/image/<id>` URLs and substitute into the arch `src` attributes.
+Or the URL-reference path per the skill. Capture `/web/image/<id>` URLs and substitute into the arch `src` attributes.
 
 ## Step 6 — Write arch
 
 ```
-set_page_arch(page_id=<view_id>, arch='<full composed arch>')
+set_page_arch(view_id=<view_id>, arch='<full composed arch>')
 ```
 Single call with the complete arch including all snippets and real content.
 
@@ -85,11 +78,12 @@ update('website.page', <page_id>, {
 
 ## Step 8 — Add to navigation menu (optional)
 
+For the main menu, pass `add_menu=true` to `create_page` in Step 2. For a submenu:
 ```
 create('website.menu', {
   name: '<Menu label>',
   url: '/<slug>',
-  parent_id: <parent_menu_id>,   # search_records('website.menu', [['parent_id','=',false]]) for root menus
+  parent_id: <parent_menu_id>,   # list_records('website.menu', domain=[['parent_id','=',false]], fields=['name']) for root menus
   website_id: <website_id>
 })
 ```
@@ -98,14 +92,14 @@ create('website.menu', {
 
 Only when content is reviewed and ready:
 ```
-update('website.page', <page_id>, {is_published: true})
+set_page_visibility(page_id=<page_id>, is_published=true)
 ```
 
 ## Verify
 
 ```
 get_record('website.page', <page_id>, fields=['name', 'url', 'is_published'])
-get_page_arch(page_id=<view_id>)
+get_page_arch(page_id=<page_id>)
 ```
 Visit `/<slug>` to confirm the page renders with expected content.
 
@@ -117,7 +111,7 @@ To translate into other languages: run workflow `translate_website_page`.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `create('website.page')` fails with URL conflict | URL already taken | Use a different slug or update existing page |
+| `create('website.page')` fails with "Missing view architecture" | Page created without its view | Use `create_page` |
 | Page renders blank | `oe_structure` container missing or arch empty | Re-inject snippets; ensure arch has valid `oe_structure` wrapper |
 | Images show broken link | Attachment not `public: true`, or wrong URL format | `update('ir.attachment', id, {public: true})`; use `/web/image/<id>` format |
-| Page not visible at URL | `is_published` still false | `update('website.page', id, {is_published: true})` |
+| Page not visible at URL | `is_published` still false | `set_page_visibility(page_id=<id>, is_published=true)` |
