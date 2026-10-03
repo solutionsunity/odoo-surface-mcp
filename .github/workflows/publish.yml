@@ -115,8 +115,7 @@ jobs:
       - name: Publish to MCP Registry
         run: |
           NAME=$(node -p "require('./server.json').name")
-          if curl -fsS "https://registry.modelcontextprotocol.io/v0/servers?search=${NAME#*/}" \
-               | jq -e --arg n "$NAME" --arg v "$V" '.servers[]?.server | select(.name == $n and .version == $v)' >/dev/null; then
+          if curl -fsS -o /dev/null "https://registry.modelcontextprotocol.io/v0/servers/${NAME//\//%2F}/versions/$V"; then
             echo "registry: $NAME $V already published"; exit 0
           fi
           # The registry validates the npm package; a fresh npm release takes minutes to be served.
