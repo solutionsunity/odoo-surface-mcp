@@ -39,7 +39,7 @@ the path and signature are unchanged.
 | `read` of a binary field | `download_binary` | ok | ok | ok | ok | ok | D13 |
 | `write` | `update`, `archive`, `upload_binary` | ok | ok | ok | ok | ok | ok |
 | `search_read`, `search_count` | `list_records`, `search_records` | ok | ok | ok | ok | ok | ok |
-| `name_search` | `search_records` | ok | ok | ok | ok | D8 | D8 |
+| `name_search` (domain positional) | `search_records` | ok | ok | ok | ok | ok | ok |
 | `fields_get` | `get_fields`, `get_defaults`, `update`, `archive`, `inspect_fields`, `odooClient.validFieldNames()` | ok | ok | ok | ok | ok | ok |
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |
 | `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
@@ -77,8 +77,9 @@ Fields read or written by the calls above exist in every series unless a diverge
 
 ## Divergences
 
-Each divergence is handled by one operation in `src/odoo/` (see `docs/architecture.md`), named
-here once it lands. Status: **open** until then and the row reads `ok` across the supported range.
+Each divergence is handled by one operation in `src/odoo/` (see `docs/architecture.md`) — or,
+where one call form works on every series, by using that form (*call form*). Status: **open**
+until handled and the row reads `ok` across the supported range.
 
 | # | Series | Divergence | Status |
 |---|---|---|---|
@@ -89,7 +90,7 @@ here once it lands. Status: **open** until then and the row reads `ok` across th
 | D5 | 18.0+ | View type `tree` renamed `list` | `views` |
 | D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | open |
 | D7 | 19.0+ | `res.users.groups_id` renamed | open |
-| D8 | 19.0+ | `name_search` `args` renamed `domain` | open |
+| D8 | 19.0+ | `name_search` `args` renamed `domain` | call form |
 | D9 | 17.0+ | `message_post` escapes a plain-string body | open |
 | D10 | 19.0+ | `message_post` returns `[id]` | open |
 | D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | open |

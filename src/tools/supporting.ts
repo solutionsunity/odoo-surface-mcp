@@ -247,9 +247,8 @@ export function register(server: McpServer, client: OdooClient, cache: Cache): v
         const combined = [...actionDomain, ...(domain ?? [])];
         const ctxKwarg = Object.keys(mergedCtx).length ? { context: mergedCtx } : {};
         if (query) {
-          const results = await client.execute(model, 'name_search', [query], {
-            args: combined, limit, ...ctxKwarg,
-          }) as Array<[number, string]>;
+          // Positional: the domain parameter is `args` up to 18.0, `domain` from 19.0.
+          const results = await client.execute(model, 'name_search', [query, combined, 'ilike', limit], ctxKwarg) as Array<[number, string]>;
           return ok(results.map(r => ({ id: r[0], display_name: r[1] })));
         }
         return ok(await client.execute(model, 'search_read', [combined], {
