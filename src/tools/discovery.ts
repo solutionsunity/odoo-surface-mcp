@@ -112,7 +112,6 @@ export async function collectModelActions(client: OdooClient, model: string): Pr
         label: attrs['string'] ?? attrs['name'],
         type: btnType,
         invisible: attrs['invisible'],
-        groups: attrs['groups'],
       });
     }
   } catch (e) {

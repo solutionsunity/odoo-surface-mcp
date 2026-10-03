@@ -53,8 +53,6 @@ the path and signature are unchanged.
 
 | Call | Used by | 15.0 | 16.0 | 17.0 | 18.0 | 19.0 | 20.0 |
 |---|---|---|---|---|---|---|---|
-| `res.users.read(groups_id)` | `odooClient.userGroupXmlids()` | ok | ok | ok | ok | D7 | D7 |
-| `ir.model.data.search_read` | `odooClient.userGroupXmlids()` | ok | ok | ok | ok | ok | ok |
 | `ir.model.search` | `odooClient.getModelId()` | ok | ok | ok | ok | ok | ok |
 | `ir.ui.menu.search_read` | `get_models` | ok | ok | ok | ok | ok | ok |
 | `ir.actions.act_window.search_read`, `.read` | `get_models`, `get_model_actions`, `list_records`, `search_records`, `get_defaults` | ok | ok | ok | ok | ok | ok |
@@ -89,7 +87,7 @@ until handled and the row reads `ok` across the supported range.
 | D4 | 18.0+ | `get_views` wraps model fields | `views` |
 | D5 | 18.0+ | View type `tree` renamed `list` | `views` |
 | D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | open |
-| D7 | 19.0+ | `res.users.groups_id` renamed | open |
+| D7 | 19.0+ | `res.users.groups_id` renamed | call removed |
 | D8 | 19.0+ | `name_search` `args` renamed `domain` | call form |
 | D9 | 17.0+ | `message_post` escapes a plain-string body | open |
 | D10 | 19.0+ | `message_post` returns `[id]` | open |
@@ -144,7 +142,8 @@ Effect on 20.0: `can_create` / `can_write` / `can_delete` always `false`.
 effective groups are `all_group_ids` (`19.0/odoo/addons/base/models/res_users.py:257`). Reading
 `groups_id` raises. Effect: `get_available_actions` errors. Note: the server already strips the
 `groups` attribute from returned arch (e.g. `17.0/odoo/addons/base/models/ir_ui_view.py:1023`), so
-the client-side group check has nothing to evaluate on 16.0+.
+the client-side group check has nothing to evaluate — on 15.0 too
+(`15.0/odoo/addons/base/models/ir_ui_view.py:1007`). The check and its `groups_id` read are removed.
 
 **D8 — 19.0+: `name_search(name, domain, operator, limit)`.** The `args` keyword is renamed
 `domain` (`19.0/odoo/orm/models.py:1527`); `args=` raises `TypeError`. Positional domain works on

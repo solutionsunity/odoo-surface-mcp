@@ -60,13 +60,6 @@ function isInvisible(expr: string | null | undefined, ctx: Record<string, unknow
   } catch { return false; }
 }
 
-function userInGroups(groupsAttr: string | null | undefined, userGroups: Set<string>): boolean {
-  if (!groupsAttr) return true;
-  if (!userGroups.size) return true; // conservative: show if group check unavailable
-  const required = groupsAttr.split(',').map(g => g.trim()).filter(Boolean);
-  return required.some(g => userGroups.has(g));
-}
-
 function normaliseRecord(record: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(record)) {
@@ -141,14 +134,14 @@ export function register(server: McpServer, client: OdooClient, _cache: Cache): 
           }
         }
 
-        // Step 3: evaluate each invisible expression + groups
-        const userGroups = await client.userGroupXmlids();
+        // Step 3: evaluate each invisible expression. Group restrictions need no check: the
+        // server drops buttons outside the user's groups and strips the attribute
+        // (15.0/odoo/addons/base/models/ir_ui_view.py:1007, 16.0/odoo/addons/base/models/ir_ui_view.py:1059).
         const seenBtns = new Set<string>();
         const visibleButtons: unknown[] = [];
 
         for (const [btn, expr] of parsed) {
           if (isInvisible(expr, evalCtx)) continue;
-          if (!userInGroups(btn['groups'] as string | undefined, userGroups)) continue;
           const name = btn['name'] as string;
           if (seenBtns.has(name)) continue;
           seenBtns.add(name);

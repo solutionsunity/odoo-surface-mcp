@@ -59,7 +59,6 @@ export class OdooClient {
   private _session: Session | null = null;
   private _idCounter = 1;
   private _cookies = new Map<string, string>();
-  private _groupXmlids: Set<string> | null = null;
 
   constructor(
     private url: string,
@@ -243,28 +242,9 @@ export class OdooClient {
     return ids[0] ?? null;
   }
 
-  async userGroupXmlids(): Promise<Set<string>> {
-    if (this._groupXmlids) return this._groupXmlids;
-    const uid = await this.getUid();
-    const rows = await this.execute('res.users', 'read', [[uid]], { fields: ['groups_id'] }) as Array<{ groups_id: number[] }>;
-    const groupIds: number[] = rows[0]?.groups_id ?? [];
-    const xmlids = new Set<string>();
-    if (groupIds.length) {
-      const imdRows = await this.execute(
-        'ir.model.data', 'search_read',
-        [[['model', '=', 'res.groups'], ['res_id', 'in', groupIds]]],
-        { fields: ['module', 'name'] },
-      ) as Array<{ module: string; name: string }>;
-      for (const row of imdRows) xmlids.add(`${row.module}.${row.name}`);
-    }
-    this._groupXmlids = xmlids;
-    return xmlids;
-  }
-
   /** Release session state. Call on shutdown. */
   close(): void {
     this._cookies.clear();
     this._session = null;
-    this._groupXmlids = null;
   }
 }
