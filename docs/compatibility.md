@@ -92,7 +92,7 @@ until handled and the row reads `ok` across the supported range.
 | D9 | 17.0+ | `message_post` escapes a plain-string body | `postMessage` |
 | D10 | 19.0+ | `message_post` returns `[id]` | `postMessage` |
 | D11 | 19.0+ | `mail.activity.user_id` no longer defaults to the caller | call form |
-| D12 | 20.0 | `website.page.url` translatable | open |
+| D12 | 20.0 | `website.page.url` translatable | accepted |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
 | X1 | all | Divergences fail silently | open — `views`, binary, access callers done |
@@ -164,7 +164,8 @@ which RPC `create` does not run. 20.0 computes it from the activity type's defau
 (`20.0/addons/mail/models/mail_activity.py:121`). Effect: activities created unassigned.
 
 **D12 — 20.0: `website.page.url` is translatable** (`20.0/addons/website/models/website_page.py:50`).
-`list_pages` returns the URL in the request language.
+`list_pages` returns the URL in the request language. Accepted: the web client shows the same —
+user-equivalent, no change.
 
 **D13 — 20.0: binary fields read as an object.** `{filename?, content, size}`
 (`20.0/odoo/orm/fields_binary.py:134`); 15.0–19.0 return a base64 string. Effect: `download_binary`
