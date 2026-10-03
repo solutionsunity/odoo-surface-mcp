@@ -34,7 +34,7 @@
     "agent",
     "erp"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "mcpName": "io.github.solutionsunity/odoo-surface-mcp",
   "homepage": "https://solutionsunity.com/products/odoo-surface",
   "repository": {
