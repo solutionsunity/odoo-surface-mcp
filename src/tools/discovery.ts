@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { OdooClient } from '../odooClient.js';
 import { views } from '../odoo/views.js';
+import { hasAccess } from '../odoo/access.js';
 import { Cache } from '../cache.js';
 import { xmlParser, FXPNode, iterNodes, ok } from '../utils.js';
 
@@ -80,9 +81,9 @@ async function relatedModels(client: OdooClient, cache: Cache, base: string): Pr
 
 export async function collectModelActions(client: OdooClient, model: string): Promise<Record<string, unknown>> {
   const access = {
-    can_create: await client.checkAccess(model, 'create'),
-    can_write: await client.checkAccess(model, 'write'),
-    can_delete: await client.checkAccess(model, 'unlink'),
+    can_create: await hasAccess(client, model, 'create'),
+    can_write: await hasAccess(client, model, 'write'),
+    can_delete: await hasAccess(client, model, 'unlink'),
   };
 
   const modelId = await client.getModelId(model);

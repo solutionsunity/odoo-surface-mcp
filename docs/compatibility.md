@@ -44,7 +44,7 @@ the path and signature are unchanged.
 | `default_get` | `get_defaults` | ok | ok | ok | ok | ok | ok |
 | `views` → `{arch, fields}` (`src/odoo/views.ts`) | `viewFieldNames()`, `get_models`, `get_model_actions`, `get_model_interface`, `inspect_view`, `inspect_action` | ok | ok | ok | ok | ok | ok |
 | button visibility (`invisible` in arch) | `get_available_actions` | D3 | D3 | ok | ok | ok | ok |
-| `check_access_rights` | `odooClient.checkAccess()` | ok | ok | ok | D6 | D6 | D6 |
+| `hasAccess` (`src/odoo/access.ts`) | `get_model_actions`, `get_model_interface`, `get_available_actions` | ok | ok | ok | ok | ok | ok |
 | `get_field_translations` | `translation_get`, `translation_audit` | D2 | ok | ok | ok | ok | ok |
 | `update_field_translations` | `translation_update` | D2 | ok | ok | ok | ok | ok |
 | `message_post` | `post_message` | ok | ok | D9 | D9 | D9, D10 | D9, D10 |
@@ -86,7 +86,7 @@ until handled and the row reads `ok` across the supported range.
 | D3 | 15.0, 16.0 | Conditional visibility is a domain, not an expression | open |
 | D4 | 18.0+ | `get_views` wraps model fields | `views` |
 | D5 | 18.0+ | View type `tree` renamed `list` | `views` |
-| D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | open |
+| D6 | 18.0+ | `check_access_rights` deprecated, removed in 20.0 | `hasAccess` |
 | D7 | 19.0+ | `res.users.groups_id` renamed | call removed |
 | D8 | 19.0+ | `name_search` `args` renamed `domain` | call form |
 | D9 | 17.0+ | `message_post` escapes a plain-string body | open |
@@ -95,7 +95,7 @@ until handled and the row reads `ok` across the supported range.
 | D12 | 20.0 | `website.page.url` translatable | open |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
-| X1 | all | Divergences fail silently | open — `views`, binary callers done |
+| X1 | all | Divergences fail silently | open — `views`, binary, access callers done |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | open |
 
 **D1 — 15.0: no `get_views`.** 15.0 offers `load_views(views, options)` (`15.0/odoo/models.py:1626`),

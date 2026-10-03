@@ -226,12 +226,6 @@ export class OdooClient {
     };
   }
 
-  async checkAccess(model: string, operation: string): Promise<boolean> {
-    try {
-      return Boolean(await this.execute(model, 'check_access_rights', [operation, false]));
-    } catch { return false; }
-  }
-
   async validFieldNames(model: string): Promise<Set<string>> {
     const meta = await this.execute(model, 'fields_get', [], { attributes: ['string'] }) as Record<string, unknown>;
     return new Set(Object.keys(meta));

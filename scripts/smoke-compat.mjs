@@ -37,7 +37,7 @@ const CASES = [
   ['get_record', { model: 'res.partner', record_id: 1 }, r => Object.keys(r).length > 2 || 'display_name only'],
   ['get_defaults', { model: 'res.partner' }, r => noError(r) || 'error'],
   ['get_models', { base: 'res.partner' }, r => (nonEmpty(r) && noError(r)) || 'empty'],
-  ['get_model_actions', { model: 'res.partner' }, r => noError(r.view_buttons) || 'view_buttons error'],
+  ['get_model_actions', { model: 'res.partner' }, r => (noError(r.view_buttons) && r.can_write === true) || 'view_buttons error or no write access'],
   ['get_model_interface', { model: 'res.partner' }, r => (nonEmpty(r.fields) && !('fields' in r.fields)) || 'fields empty or nested'],
   ['get_available_actions', { model: 'res.partner', record_id: 1 }, r => Array.isArray(r.visible_buttons) || 'no visible_buttons'],
   ['search_records', { model: 'res.partner', query: 'a', limit: 3 }, r => (nonEmpty(r) && noError(r)) || 'empty'],
