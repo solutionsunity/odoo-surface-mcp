@@ -1,4 +1,4 @@
-# OdooSurface MCP
+# <img src="assets/icon.png" width="36" alt="" align="top"/> OdooSurface MCP
 
 [![npm version](https://img.shields.io/npm/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
 [![Node](https://img.shields.io/node/v/@suco/odoo-surface-mcp)](https://www.npmjs.com/package/@suco/odoo-surface-mcp)
