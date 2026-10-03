@@ -95,6 +95,7 @@ until handled and the row reads `ok` across the supported range.
 | D12 | 20.0 | `website.page.url` translatable | accepted |
 | D13 | 20.0 | Binary fields read as an object | `readBinary` |
 | D14 | 20.0 | `ir.attachment.datas` removed | `writeAttachmentContent` |
+| D15 | 16.0, 17.0 | html/xml term updates keyed by the language's current term | `updateFieldTranslations` |
 | X1 | all | Divergences fail silently | fixed |
 | X2 | 20.0 | Guidance names `ir.attachment.datas` | open |
 
@@ -185,6 +186,13 @@ writes a corrupt file and reports success.
 (`20.0/odoo/addons/base/models/ir_attachment.py:616`). Writing `datas` is dropped with a warning when
 `mimetype` is also written, otherwise raises. Effect: in-place replace reports success without
 replacing.
+
+**D15 — 16.0, 17.0: html/xml term updates are keyed by the language's current term.**
+`update_field_translations(field, {lang: {old_term: new_term}})` matches `old_term` against the
+field's current value in `lang` (`16.0/odoo/models.py:3155`, `17.0/odoo/models.py:3711`); 18.0+
+matches source (`en_US`) terms (`18.0/odoo/models.py:3914`). Keyed by source terms — the tool's
+contract — an already translated term was silently left unchanged on 16.0/17.0.
+`updateFieldTranslations` rekeys source terms to each language's current term there.
 
 **X1 — divergences fail silently.** Several call sites catch the error and return a plausible
 value: `viewFieldNames()` returns `[]` and caches it, `checkAccess()` returns `false`,

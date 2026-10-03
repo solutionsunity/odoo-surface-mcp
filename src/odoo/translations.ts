@@ -85,7 +85,10 @@ export const fieldTranslations = since<[string, number, string, string[] | undef
   },
 });
 
-/** Write a field's translations with 16.0's update_field_translations contract. */
+/**
+ * Write a field's translations: per language a value (translate=True; false voids it) or a
+ * {source term: translation} map (html/xml) — source terms are en_US on every series.
+ */
 export const updateFieldTranslations = since<[string, number, string, Translations], void>('updateFieldTranslations', {
   // As the 15.0 translate dialog edits them: translate=True through the record in each language,
   // html/xml terms as ir.translation rows. Unknown source terms are ignored, as in 16.0.
@@ -117,7 +120,20 @@ export const updateFieldTranslations = since<[string, number, string, Translatio
       }
     }
   },
+  // html/xml terms are keyed by the term as it currently reads in each language
+  // (16.0/odoo/models.py:3155, 17.0/odoo/models.py:3711): rekey from source terms.
   '16.0': async (c, model, id, field, translations) => {
+    const { rows, meta } = await fieldTranslations(c, model, id, field, Object.keys(translations));
+    if (meta.translation_show_source) {
+      const current = new Map(rows.map(r => [`${r.lang}\u0000${r.source}`, r.value || r.source]));
+      translations = Object.fromEntries(Object.entries(translations).map(([lang, terms]) => [lang,
+        Object.fromEntries(Object.entries(terms as Record<string, string>).map(([src, value]) =>
+          [current.get(`${lang}\u0000${src}`) ?? src, value]))]));
+    }
+    await c.execute(model, 'update_field_translations', [[id], field, translations]);
+  },
+  // Keyed by source (en_US) terms (18.0/odoo/models.py:3914).
+  '18.0': async (c, model, id, field, translations) => {
     await c.execute(model, 'update_field_translations', [[id], field, translations]);
   },
 });
